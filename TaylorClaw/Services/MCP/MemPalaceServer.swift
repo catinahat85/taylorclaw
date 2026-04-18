@@ -1,50 +1,53 @@
 import Foundation
 
+/// Thin wrapper that launches the MemPalace MCP server under the installed
+/// Python runtime and exposes it via a generic `MCPClient`.
 actor MemPalaceServer {
     static let shared = MemPalaceServer()
 
-    private var process: Process?
+    private var client: MCPClient?
 
-    var isRunning: Bool { process?.isRunning == true }
+    var isRunning: Bool { client != nil }
+
+    private var config: MCPServerConfig {
+        MCPServerConfig(
+            name: "mempalace",
+            command: RuntimeConstants.venvPython.path,
+            args: [
+                "-m", "mempalace.mcp_server",
+                "--data-dir", RuntimeConstants.mempalaceDir.path,
+            ],
+            env: ["MEM_PALACE_DATA_DIR": RuntimeConstants.mempalaceDir.path],
+            autoStart: true
+        )
+    }
 
     // MARK: - Lifecycle
 
-    func start() throws {
-        guard !isRunning else { return }
-        guard FileManager.default.fileExists(
-            atPath: RuntimeConstants.venvPython.path) else {
+    func start() async throws {
+        guard client == nil else { return }
+        guard FileManager.default.fileExists(atPath: RuntimeConstants.venvPython.path) else {
             throw RuntimeError.notInstalled
         }
-
-        let proc = Process()
-        proc.executableURL = RuntimeConstants.venvPython
-        proc.arguments = [
-            "-m", "mempalace.mcp_server",
-            "--data-dir", RuntimeConstants.mempalaceDir.path
-        ]
-        var env = ProcessInfo.processInfo.environment
-        env["MEM_PALACE_DATA_DIR"] = RuntimeConstants.mempalaceDir.path
-        proc.environment = env
-        proc.standardOutput = FileHandle.nullDevice
-        proc.standardError  = FileHandle.nullDevice
-
-        proc.terminationHandler = { [weak self] _ in
-            Task { await self?.clearProcess() }
-        }
-
-        try proc.run()
-        process = proc
+        let c = MCPClient(config: config)
+        try await c.start()
+        self.client = c
     }
 
-    func stop() {
-        process?.terminate()
-        process?.waitUntilExit()
-        process = nil
+    func stop() async {
+        guard let c = client else { return }
+        await c.stop()
+        self.client = nil
     }
 
-    // MARK: - Private
+    // MARK: - Tool access
 
-    private func clearProcess() {
-        process = nil
+    func listTools() async -> [MCPTool] {
+        await client?.listTools() ?? []
+    }
+
+    func callTool(name: String, arguments: JSONValue = .object([:])) async throws -> MCPToolCallResult {
+        guard let c = client else { throw MCPError.notInitialized }
+        return try await c.callTool(name: name, arguments: arguments)
     }
 }
