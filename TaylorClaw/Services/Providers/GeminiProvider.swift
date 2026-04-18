@@ -26,7 +26,7 @@ struct GeminiProvider: LLMProvider {
 
     func streamChat(
         _ request: ChatRequest
-    ) async throws -> AsyncThrowingStream<ChatStreamChunk, Error> {
+    ) async throws -> AsyncThrowingStream<ChatStreamChunk, any Error> {
         let key = try await resolveKey()
         let path = "/v1beta/models/\(request.model.id):streamGenerateContent"
         var components = URLComponents(

@@ -22,7 +22,7 @@ struct OpenRouterProvider: LLMProvider {
 
     func streamChat(
         _ request: ChatRequest
-    ) async throws -> AsyncThrowingStream<ChatStreamChunk, Error> {
+    ) async throws -> AsyncThrowingStream<ChatStreamChunk, any Error> {
         let key = try await resolveKey()
         let url = baseURL.appendingPathComponent("/api/v1/chat/completions")
         var req = URLRequest(url: url)
