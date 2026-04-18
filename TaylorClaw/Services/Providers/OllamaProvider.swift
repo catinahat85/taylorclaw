@@ -24,7 +24,7 @@ struct OllamaProvider: LLMProvider {
 
     func streamChat(
         _ request: ChatRequest
-    ) async throws -> AsyncThrowingStream<ChatStreamChunk, Error> {
+    ) async throws -> AsyncThrowingStream<ChatStreamChunk, any Error> {
         let url = baseURL.appendingPathComponent("/api/chat")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
