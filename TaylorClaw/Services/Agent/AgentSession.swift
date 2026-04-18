@@ -97,6 +97,13 @@ final class AgentSession {
         return NoDocumentRetriever()
     }
 
+    /// Build a `MemoryService` wired to the live MCP client and the guard.
+    /// Returns `nil` when MemPalace is not ready.
+    func makeMemoryService() -> MemoryService? {
+        guard let c = client, case .ready = status else { return nil }
+        return MemoryService.mempalace(client: c, guardActor: guardActor)
+    }
+
     // MARK: - Private
 
     private func performStart() async {

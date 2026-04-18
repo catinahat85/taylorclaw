@@ -6,7 +6,9 @@ struct TaylorClawApp: App {
     @State private var listViewModel = ConversationListViewModel()
     @State private var settingsViewModel = SettingsViewModel()
     @State private var runtimeManager = RuntimeManager.shared
+    @State private var memoryViewModel = MemoryBrowserViewModel()
     @State private var showRuntimeSheet = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
         Window("Taylor Claw", id: "main") {
@@ -52,7 +54,20 @@ struct TaylorClawApp: App {
                 .keyboardShortcut("k", modifiers: [.command, .shift])
                 .disabled(listViewModel.selected == nil)
             }
+            CommandGroup(after: .windowArrangement) {
+                Button("Memory Browser") {
+                    openWindow(id: "memory")
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+            }
         }
+
+        Window("Memory Browser", id: "memory") {
+            MemoryBrowserView(viewModel: memoryViewModel)
+                .frame(minWidth: 720, minHeight: 480)
+                .preferredColorScheme(preferences.appearance.colorScheme)
+        }
+        .defaultSize(width: 900, height: 620)
 
         Settings {
             SettingsWindow(viewModel: settingsViewModel, preferences: preferences)

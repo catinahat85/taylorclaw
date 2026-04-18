@@ -41,9 +41,11 @@ final class ToolPolicyTests: XCTestCase {
 
     func testDefaultPolicyKnowsMemPalaceTools() {
         let p = ToolPolicy.default
-        XCTAssertEqual(p.risk(for: "retrieve_memory"), .safe)
-        XCTAssertEqual(p.risk(for: "store_memory"), .caution)
-        XCTAssertEqual(p.risk(for: "delete_memory"), .destructive)
+        XCTAssertEqual(p.risk(for: "mempalace_search"), .safe)
+        XCTAssertEqual(p.risk(for: "mempalace_list_wings"), .safe)
+        XCTAssertEqual(p.risk(for: "mempalace_add_drawer"), .caution)
+        XCTAssertEqual(p.risk(for: "mempalace_delete_drawer"), .destructive)
+        XCTAssertEqual(p.risk(for: "mempalace_clear_palace"), .destructive)
     }
 
     func testHeuristicDestructiveBeatsCaution() {
