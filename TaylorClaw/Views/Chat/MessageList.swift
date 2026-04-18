@@ -22,13 +22,11 @@ struct MessageList: View {
                 }
                 .padding(.vertical, 12)
             }
+            .defaultScrollAnchor(.bottom)
             .onChange(of: messages.last?.id) { _, _ in
                 withAnimation(.easeOut(duration: 0.12)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
-            }
-            .onChange(of: messages.last?.content) { _, _ in
-                proxy.scrollTo("bottom", anchor: .bottom)
             }
             .onAppear { proxy.scrollTo("bottom", anchor: .bottom) }
         }
