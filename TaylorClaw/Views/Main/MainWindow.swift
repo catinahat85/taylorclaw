@@ -1,12 +1,24 @@
 import SwiftUI
 
+@MainActor
+final class ChatViewModelStore {
+    private var vms: [UUID: ChatViewModel] = [:]
+
+    func viewModel(for convo: Conversation, model: LLMModel) -> ChatViewModel {
+        if let existing = vms[convo.id] { return existing }
+        let vm = ChatViewModel(conversation: convo, selectedModel: model)
+        vms[convo.id] = vm
+        return vm
+    }
+}
+
 struct MainWindow: View {
     @Bindable var listViewModel: ConversationListViewModel
     @Bindable var settingsViewModel: SettingsViewModel
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var preferences: Preferences
 
-    @State private var chatViewModels: [UUID: ChatViewModel] = [:]
+    @State private var chatVMStore = ChatViewModelStore()
 
     var body: some View {
         NavigationSplitView {
@@ -34,7 +46,7 @@ struct MainWindow: View {
                 action: { openSettings() }
             )
         } else if let convo = listViewModel.selected {
-            let vm = chatViewModel(for: convo)
+            let vm = chatVMStore.viewModel(for: convo, model: resolveModel(for: convo))
             ChatView(
                 viewModel: vm,
                 availableProviders: availableProviders,
@@ -70,19 +82,6 @@ struct MainWindow: View {
         preferences.openRouterModelIDs.map {
             LLMModel(provider: .openrouter, id: $0, displayName: $0)
         }
-    }
-
-    private func chatViewModel(for convo: Conversation) -> ChatViewModel {
-        if let existing = chatViewModels[convo.id] {
-            if existing.conversation.updatedAt < convo.updatedAt {
-                existing.conversation = convo
-            }
-            return existing
-        }
-        let model = resolveModel(for: convo)
-        let vm = ChatViewModel(conversation: convo, selectedModel: model)
-        chatViewModels[convo.id] = vm
-        return vm
     }
 
     private func resolveModel(for convo: Conversation) -> LLMModel {
