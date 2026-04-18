@@ -110,7 +110,6 @@ struct OpenRouterProvider: LLMProvider {
                     }
 
                     orLog("stream ended after \(lineCount) lines")
-                    timeoutTask.cancel()
                     continuation.yield(.done)
                     continuation.finish()
                 } catch is CancellationError {
