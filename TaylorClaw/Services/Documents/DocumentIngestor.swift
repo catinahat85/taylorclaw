@@ -16,13 +16,13 @@ actor DocumentIngestor {
     private let chunker: DocumentChunker
     private let store: DocumentStore
     private let uploader: (any DocumentUploader)?
-    private let reader: DocumentReading
+    private let reader: any DocumentReading
 
     init(
         chunker: DocumentChunker = DocumentChunker(),
         store: DocumentStore = .shared,
         uploader: (any DocumentUploader)? = nil,
-        reader: DocumentReading = FileReader()
+        reader: any DocumentReading = FileReader()
     ) {
         self.chunker = chunker
         self.store = store
