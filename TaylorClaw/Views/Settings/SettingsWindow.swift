@@ -22,6 +22,9 @@ struct SettingsWindow: View {
             DocumentsSettingsView(viewModel: documentsViewModel)
                 .tabItem { Label("Documents", systemImage: "doc.text") }
 
+            DiagnosticsSettingsView()
+                .tabItem { Label("Diagnostics", systemImage: "stethoscope") }
+
             AdvancedSettingsView()
                 .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
         }
