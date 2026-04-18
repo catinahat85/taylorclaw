@@ -61,15 +61,16 @@ struct OpenRouterProvider: LLMProvider {
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    var receivedFirstToken = false
                     var lineCount = 0
 
                     let timeoutTask = Task {
-                        try await Task.sleep(nanoseconds: UInt64(timeoutInterval * 1_000_000_000))
-                        if !receivedFirstToken {
+                        do {
+                            try await Task.sleep(nanoseconds: UInt64(timeoutInterval * 1_000_000_000))
                             continuation.finish(
                                 throwing: LLMError.network("No response from OpenRouter after \(Int(timeoutInterval))s. Check model ID and credits.")
                             )
+                        } catch {
+                            // Cancelled — first token arrived or stream ended.
                         }
                     }
                     defer { timeoutTask.cancel() }
@@ -113,7 +114,7 @@ struct OpenRouterProvider: LLMProvider {
 
                         if let text = Self.textFrom(payload) {
                             orLog("text: \(text)")
-                            receivedFirstToken = true
+                            timeoutTask.cancel()
                             continuation.yield(.text(text))
                         } else {
                             orLog("parsed chunk had no text (role-only or empty delta)")
