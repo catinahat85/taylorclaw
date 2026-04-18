@@ -32,7 +32,7 @@ protocol LLMProvider: Sendable {
 
     func availableModels() async throws -> [LLMModel]
 
-    func streamChat(_ request: ChatRequest) async throws -> AsyncThrowingStream<ChatStreamChunk, Error>
+    func streamChat(_ request: ChatRequest) async throws -> AsyncThrowingStream<ChatStreamChunk, any Error>
 
     func testConnection() async throws
 }
