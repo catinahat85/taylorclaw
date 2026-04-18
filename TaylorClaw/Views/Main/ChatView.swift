@@ -7,11 +7,16 @@ struct ChatView: View {
     let openRouterModels: [LLMModel]
     let onChange: (ChatViewModel) -> Void
 
+    private let agent = AgentSession.shared
+
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
                 toolbar
                 Divider()
+                if viewModel.mode == .agent {
+                    AgentPanel(viewModel: viewModel, session: agent)
+                }
                 content
                 ComposerView(
                     text: $viewModel.composerText,
@@ -32,6 +37,16 @@ struct ChatView: View {
                 )
             }
         }
+        .sheet(item: Binding(
+            get: { agent.prompter.pending },
+            set: { newValue in
+                if newValue == nil { agent.prompter.dismiss() }
+            }
+        )) { request in
+            ApprovalSheet(request: request) { decision in
+                agent.prompter.resolve(decision)
+            }
+        }
     }
 
     private var toolbar: some View {
@@ -40,6 +55,7 @@ struct ChatView: View {
                 .font(.headline)
                 .lineLimit(1)
             Spacer()
+            modePicker
             ModelPicker(
                 selected: $viewModel.selectedModel,
                 availableProviders: availableProviders,
@@ -49,6 +65,23 @@ struct ChatView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    private var modePicker: some View {
+        Picker("Mode", selection: Binding(
+            get: { viewModel.mode },
+            set: { newValue in
+                viewModel.mode = newValue
+                onChange(viewModel)
+            }
+        )) {
+            ForEach(ChatMode.allCases) { mode in
+                Text(mode.displayName).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 160)
+        .labelsHidden()
     }
 
     @ViewBuilder
