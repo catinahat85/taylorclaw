@@ -50,4 +50,20 @@ actor MemPalaceServer {
         guard let c = client else { throw MCPError.notInitialized }
         return try await c.callTool(name: name, arguments: arguments)
     }
+
+    // MARK: - Retrievers
+
+    /// Returns an `MCPMemoryRetriever` bound to this server if it is running,
+    /// otherwise `NoMemoryRetriever`. Safe to call before / after `start()`.
+    func memoryRetriever() -> any MemoryRetriever {
+        guard let c = client else { return NoMemoryRetriever() }
+        return MCPMemoryRetriever(client: c)
+    }
+
+    /// Returns an `MCPDocumentRetriever` bound to this server if it is running,
+    /// otherwise `NoDocumentRetriever`.
+    func documentRetriever() -> any DocumentRetriever {
+        guard let c = client else { return NoDocumentRetriever() }
+        return MCPDocumentRetriever(client: c)
+    }
 }

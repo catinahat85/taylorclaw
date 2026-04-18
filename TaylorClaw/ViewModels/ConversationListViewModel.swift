@@ -41,8 +41,8 @@ final class ConversationListViewModel {
         }
     }
 
-    func newConversation() {
-        let convo = Conversation()
+    func newConversation(mode: ChatMode = .chat) {
+        let convo = Conversation(mode: mode)
         conversations.insert(convo, at: 0)
         selectedID = convo.id
         Task.detached { [store] in

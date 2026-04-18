@@ -22,7 +22,7 @@ struct MainWindow: View {
 
     var body: some View {
         NavigationSplitView {
-            Sidebar(viewModel: listViewModel)
+            Sidebar(viewModel: listViewModel, preferences: preferences)
         } detail: {
             detail
         }
@@ -31,7 +31,7 @@ struct MainWindow: View {
             await settingsViewModel.load()
             await listViewModel.reload()
             if listViewModel.conversations.isEmpty {
-                listViewModel.newConversation()
+                listViewModel.newConversation(mode: preferences.defaultChatMode)
             }
         }
     }
@@ -62,7 +62,7 @@ struct MainWindow: View {
                 title: "No conversation selected",
                 subtitle: "Pick one from the sidebar or start a new one.",
                 actionTitle: "New Chat",
-                action: { listViewModel.newConversation() }
+                action: { listViewModel.newConversation(mode: preferences.defaultChatMode) }
             )
         }
     }

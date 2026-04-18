@@ -40,6 +40,17 @@ struct ChatView: View {
                 .font(.headline)
                 .lineLimit(1)
             Spacer()
+            Picker("Mode", selection: Binding(
+                get: { viewModel.mode },
+                set: { viewModel.mode = $0; onChange(viewModel) }
+            )) {
+                ForEach(ChatMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .fixedSize()
+            .help("Chat: stateless. Agent: adds memory, documents, and tool schemas to the system prompt.")
             ModelPicker(
                 selected: $viewModel.selectedModel,
                 availableProviders: availableProviders,

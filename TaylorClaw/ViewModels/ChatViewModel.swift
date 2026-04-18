@@ -12,18 +12,30 @@ final class ChatViewModel {
 
     private let registry: ProviderRegistry
     private let store: ConversationStore
+    private let memPalace: MemPalaceServer
     private var streamingTask: Task<Void, Never>?
+
+    var mode: ChatMode {
+        get { conversation.mode }
+        set {
+            guard conversation.mode != newValue else { return }
+            conversation.mode = newValue
+            persist()
+        }
+    }
 
     init(
         conversation: Conversation,
         selectedModel: LLMModel,
         registry: ProviderRegistry = .shared,
-        store: ConversationStore = .shared
+        store: ConversationStore = .shared,
+        memPalace: MemPalaceServer = .shared
     ) {
         self.conversation = conversation
         self.selectedModel = selectedModel
         self.registry = registry
         self.store = store
+        self.memPalace = memPalace
     }
 
     var canSend: Bool {
@@ -62,11 +74,34 @@ final class ChatViewModel {
 
         let assistantIndex = conversation.messages.count - 1
         let provider = registry.provider(for: selectedModel.provider)
-        let request = ChatRequest(model: selectedModel, messages: messagesForProvider())
+        let historyForProvider = messagesForProvider()
+        let model = selectedModel
+        let currentMode = conversation.mode
+        let memoryQuery = trimmed
+        let memPalace = self.memPalace
 
         streamingTask = Task { [weak self] in
             guard let self else { return }
             do {
+                let memory = await memPalace.memoryRetriever()
+                let documents = await memPalace.documentRetriever()
+                let tools = currentMode == .agent ? await memPalace.listTools() : []
+                let assembler = ContextAssembler(
+                    mode: currentMode,
+                    budget: .forModel(model),
+                    tools: tools,
+                    memoryRetriever: memory,
+                    documentRetriever: documents
+                )
+                let context = await assembler.assemble(
+                    messages: historyForProvider,
+                    memoryQuery: memoryQuery
+                )
+                let request = ChatRequest(
+                    model: model,
+                    messages: context.messages,
+                    systemPrompt: context.systemPrompt.isEmpty ? nil : context.systemPrompt
+                )
                 let stream = try await provider.streamChat(request)
                 for try await chunk in stream {
                     try Task.checkCancellation()

@@ -40,6 +40,13 @@ final class Preferences: ObservableObject {
 
     @AppStorage("openRouterModelIDs") private var openRouterModelIDsRaw: String = ""
 
+    @AppStorage("defaultChatMode") private var defaultChatModeRaw: String = ChatMode.chat.rawValue
+
+    var defaultChatMode: ChatMode {
+        get { ChatMode(rawValue: defaultChatModeRaw) ?? .chat }
+        set { defaultChatModeRaw = newValue.rawValue }
+    }
+
     var appearance: AppearanceOverride {
         get { AppearanceOverride(rawValue: appearanceRaw) ?? .system }
         set { appearanceRaw = newValue.rawValue }

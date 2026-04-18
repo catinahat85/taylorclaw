@@ -28,13 +28,16 @@ struct TaylorClawApp: App {
                 if !runtimeManager.isInstalled && !preferences.hasSkippedRuntimeInstall {
                     showRuntimeSheet = true
                 }
+                if runtimeManager.isInstalled {
+                    try? await MemPalaceServer.shared.start()
+                }
             }
         }
         .defaultSize(width: 900, height: 700)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Chat") {
-                    listViewModel.newConversation()
+                    listViewModel.newConversation(mode: preferences.defaultChatMode)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
