@@ -30,9 +30,6 @@ struct ChatView: View {
                 onStop: { viewModel.stop() }
             )
         }
-        .onChange(of: viewModel.conversation.messages) { _, _ in
-            onChange(viewModel)
-        }
     }
 
     private var toolbar: some View {
