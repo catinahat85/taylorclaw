@@ -8,10 +8,22 @@ struct ChatView: View {
     let onChange: (ChatViewModel) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            content
+        ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                toolbar
+                Divider()
+                content
+                ComposerView(
+                    text: $viewModel.composerText,
+                    isStreaming: viewModel.isStreaming,
+                    canSend: viewModel.canSend,
+                    onSend: {
+                        viewModel.send()
+                        onChange(viewModel)
+                    },
+                    onStop: { viewModel.stop() }
+                )
+            }
             if let error = viewModel.errorMessage {
                 ErrorBanner(
                     message: error,
@@ -19,16 +31,6 @@ struct ChatView: View {
                     onDismiss: { viewModel.errorMessage = nil }
                 )
             }
-            ComposerView(
-                text: $viewModel.composerText,
-                isStreaming: viewModel.isStreaming,
-                canSend: viewModel.canSend,
-                onSend: {
-                    viewModel.send()
-                    onChange(viewModel)
-                },
-                onStop: { viewModel.stop() }
-            )
         }
     }
 
