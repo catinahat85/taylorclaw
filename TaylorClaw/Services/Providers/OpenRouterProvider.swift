@@ -47,6 +47,9 @@ struct OpenRouterProvider: LLMProvider {
         req.setValue("https://github.com/catinahat85/taylorclaw",
                      forHTTPHeaderField: "HTTP-Referer")
         req.setValue("Taylor Claw", forHTTPHeaderField: "X-Title")
+        // URLRequest.timeoutInterval fires if no data transfers for this window,
+        // which covers the "no first token" case without a separate Task.
+        req.timeoutInterval = firstTokenTimeout
 
         orLog("POST \(url) model=\(request.model.id)")
 
@@ -56,24 +59,10 @@ struct OpenRouterProvider: LLMProvider {
         let (bytes, response) = try await session.bytes(for: req)
         try ensureOK(response)
 
-        let timeoutInterval = firstTokenTimeout
-
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
                     var lineCount = 0
-
-                    let timeoutTask = Task {
-                        do {
-                            try await Task.sleep(nanoseconds: UInt64(timeoutInterval * 1_000_000_000))
-                            continuation.finish(
-                                throwing: LLMError.network("No response from OpenRouter after \(Int(timeoutInterval))s. Check model ID and credits.")
-                            )
-                        } catch {
-                            // Cancelled — first token arrived or stream ended.
-                        }
-                    }
-                    defer { timeoutTask.cancel() }
 
                     for try await line in bytes.lines {
                         lineCount += 1
@@ -98,7 +87,6 @@ struct OpenRouterProvider: LLMProvider {
 
                         if payload == "[DONE]" {
                             orLog("stream done")
-                            timeoutTask.cancel()
                             continuation.yield(.done)
                             continuation.finish()
                             return
@@ -107,14 +95,12 @@ struct OpenRouterProvider: LLMProvider {
                         // Try to extract an error from the body before yielding text
                         if let bodyError = Self.errorFrom(payload) {
                             orLog("body error: \(bodyError)")
-                            timeoutTask.cancel()
                             continuation.finish(throwing: LLMError.invalidResponse(status: 200, body: bodyError))
                             return
                         }
 
                         if let text = Self.textFrom(payload) {
                             orLog("text: \(text)")
-                            timeoutTask.cancel()
                             continuation.yield(.text(text))
                         } else {
                             orLog("parsed chunk had no text (role-only or empty delta)")
