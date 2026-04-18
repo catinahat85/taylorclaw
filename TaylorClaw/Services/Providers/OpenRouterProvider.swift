@@ -54,7 +54,7 @@ struct OpenRouterProvider: LLMProvider {
         req.httpBody = try JSONEncoder().encode(payload)
 
         let (bytes, response) = try await session.bytes(for: req)
-        try ensureOK(response, bytes: bytes)
+        try ensureOK(response)
 
         let timeoutInterval = firstTokenTimeout
 
@@ -147,7 +147,7 @@ struct OpenRouterProvider: LLMProvider {
         return key
     }
 
-    private func ensureOK(_ response: URLResponse, bytes: URLSession.AsyncBytes) throws {
+    private func ensureOK(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else { return }
         guard (200..<300).contains(http.statusCode) else {
             throw LLMError.invalidResponse(status: http.statusCode, body: nil)
