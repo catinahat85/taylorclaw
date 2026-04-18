@@ -1,5 +1,5 @@
 import XCTest
-@testable import Taylor_Claw
+@testable import TaylorClaw
 
 final class SSEParserTests: XCTestCase {
     func testParsesSingleEvent() {

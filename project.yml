@@ -50,6 +50,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.catinahat85.taylorclaw
         PRODUCT_NAME: "Taylor Claw"
+        PRODUCT_MODULE_NAME: TaylorClaw
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         COMBINE_HIDPI_IMAGES: YES
         ENABLE_PREVIEWS: YES

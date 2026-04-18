@@ -1,5 +1,5 @@
 import XCTest
-@testable import Taylor_Claw
+@testable import TaylorClaw
 
 final class ConversationStoreTests: XCTestCase {
     private var tempURL: URL!
