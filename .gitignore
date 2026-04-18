@@ -1,0 +1,40 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Generated project (run `xcodegen generate` to create)
+TaylorClaw.xcodeproj/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets (belt and suspenders — keys live in Keychain, never on disk)
+*.env
+.env.*
+secrets.json
