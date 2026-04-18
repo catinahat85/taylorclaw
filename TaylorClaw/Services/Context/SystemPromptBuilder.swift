@@ -10,17 +10,20 @@ struct SystemPromptBuilder: Sendable {
     let userTemplate: String?
     let tools: [MCPTool]
     let memorySnippets: [MemorySnippet]
+    let documentSnippets: [DocumentSnippet]
 
     init(
         mode: ChatMode,
         userTemplate: String? = nil,
         tools: [MCPTool] = [],
-        memorySnippets: [MemorySnippet] = []
+        memorySnippets: [MemorySnippet] = [],
+        documentSnippets: [DocumentSnippet] = []
     ) {
         self.mode = mode
         self.userTemplate = userTemplate
         self.tools = tools
         self.memorySnippets = memorySnippets
+        self.documentSnippets = documentSnippets
     }
 
     func build() -> String {
@@ -33,6 +36,7 @@ struct SystemPromptBuilder: Sendable {
                 userTemplate?.trimmingCharacters(in: .whitespacesAndNewlines),
                 toolsSection,
                 memorySection,
+                documentSection,
             ]
             .compactMap { (s: String?) -> String? in
                 guard let s, !s.isEmpty else { return nil }
@@ -72,6 +76,17 @@ struct SystemPromptBuilder: Sendable {
         for snippet in memorySnippets {
             let source = snippet.source.map { " [\($0)]" } ?? ""
             lines.append("- \(snippet.text)\(source)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private var documentSection: String? {
+        guard !documentSnippets.isEmpty else { return nil }
+        var lines = ["## Relevant documents"]
+        for (i, snippet) in documentSnippets.enumerated() {
+            let title = snippet.documentTitle ?? "document \(i + 1)"
+            lines.append("### \(title)")
+            lines.append(snippet.text)
         }
         return lines.joined(separator: "\n")
     }

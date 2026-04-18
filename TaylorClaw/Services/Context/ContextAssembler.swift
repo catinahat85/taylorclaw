@@ -1,12 +1,13 @@
 import Foundation
 
 /// Everything a provider needs to make a single request, after the assembler
-/// has applied mode, budget, memory retrieval, and history trimming.
+/// has applied mode, budget, memory + document retrieval, and history trimming.
 struct AssembledContext: Sendable {
     let systemPrompt: String
     let messages: [Message]
     let tools: [MCPTool]
     let memorySnippets: [MemorySnippet]
+    let documentSnippets: [DocumentSnippet]
     let estimatedTokens: Int
     let budget: ContextBudget
     let droppedCount: Int
@@ -16,10 +17,10 @@ struct AssembledContext: Sendable {
 
 /// Produces an `AssembledContext` from a conversation plus policy inputs.
 ///
-/// Chat mode is a straight pass-through: no tools, no memory, only history
-/// trimming to fit the budget. Agent mode adds memory retrieval and tool
-/// schemas. The assembler is deliberately stateless — callers construct
-/// one per request.
+/// Chat mode is a straight pass-through: no tools, no retrieval, only
+/// history trimming to fit the budget. Agent mode adds memory retrieval,
+/// document (RAG) retrieval, and tool schemas. The assembler is
+/// deliberately stateless — callers construct one per request.
 struct ContextAssembler: Sendable {
     let mode: ChatMode
     let budget: ContextBudget
@@ -27,6 +28,8 @@ struct ContextAssembler: Sendable {
     let tools: [MCPTool]
     let memoryRetriever: any MemoryRetriever
     let memoryLimit: Int
+    let documentRetriever: any DocumentRetriever
+    let documentLimit: Int
 
     init(
         mode: ChatMode,
@@ -34,7 +37,9 @@ struct ContextAssembler: Sendable {
         userSystemPrompt: String? = nil,
         tools: [MCPTool] = [],
         memoryRetriever: any MemoryRetriever = NoMemoryRetriever(),
-        memoryLimit: Int = 5
+        memoryLimit: Int = 5,
+        documentRetriever: any DocumentRetriever = NoDocumentRetriever(),
+        documentLimit: Int = 4
     ) {
         self.mode = mode
         self.budget = budget
@@ -42,6 +47,8 @@ struct ContextAssembler: Sendable {
         self.tools = tools
         self.memoryRetriever = memoryRetriever
         self.memoryLimit = memoryLimit
+        self.documentRetriever = documentRetriever
+        self.documentLimit = documentLimit
     }
 
     /// Build an `AssembledContext` for a pending request.
@@ -49,23 +56,27 @@ struct ContextAssembler: Sendable {
     /// - Parameters:
     ///   - messages: The full conversation history up to and including the
     ///     user's latest message.
-    ///   - memoryQuery: The text to search memory against — typically the
-    ///     latest user message. Empty string skips retrieval.
+    ///   - memoryQuery: The text to search memory + documents against —
+    ///     typically the latest user message. Empty string skips retrieval.
     func assemble(messages: [Message], memoryQuery: String) async -> AssembledContext {
-        let snippets: [MemorySnippet]
+        let memorySnippets: [MemorySnippet]
+        let documentSnippets: [DocumentSnippet]
         if mode == .agent, !memoryQuery.isEmpty {
-            snippets = (try? await memoryRetriever.retrieve(
-                query: memoryQuery, limit: memoryLimit
-            )) ?? []
+            async let mem = memoryRetriever.retrieve(query: memoryQuery, limit: memoryLimit)
+            async let docs = documentRetriever.retrieve(query: memoryQuery, limit: documentLimit)
+            memorySnippets = (try? await mem) ?? []
+            documentSnippets = (try? await docs) ?? []
         } else {
-            snippets = []
+            memorySnippets = []
+            documentSnippets = []
         }
 
         let promptBuilder = SystemPromptBuilder(
             mode: mode,
             userTemplate: userSystemPrompt,
             tools: tools,
-            memorySnippets: snippets
+            memorySnippets: memorySnippets,
+            documentSnippets: documentSnippets
         )
         let systemPrompt = promptBuilder.build()
 
@@ -83,7 +94,8 @@ struct ContextAssembler: Sendable {
             systemPrompt: systemPrompt,
             messages: kept,
             tools: toolsOut,
-            memorySnippets: snippets,
+            memorySnippets: memorySnippets,
+            documentSnippets: documentSnippets,
             estimatedTokens: total,
             budget: budget,
             droppedCount: dropped

@@ -155,11 +155,84 @@ final class ContextAssemblerTests: XCTestCase {
     }
 }
 
-// MARK: - Stub retriever
+// MARK: - Stub retrievers
 
 private struct StubMemoryRetriever: MemoryRetriever {
     let snippets: [MemorySnippet]
     func retrieve(query: String, limit: Int) async throws -> [MemorySnippet] {
         Array(snippets.prefix(limit))
+    }
+}
+
+private struct StubDocumentRetriever: DocumentRetriever {
+    let snippets: [DocumentSnippet]
+    func retrieve(query: String, limit: Int) async throws -> [DocumentSnippet] {
+        Array(snippets.prefix(limit))
+    }
+}
+
+// MARK: - Document retrieval extension
+
+extension ContextAssemblerTests {
+    func testAgentModeInjectsDocumentSnippets() async {
+        let docs = StubDocumentRetriever(snippets: [
+            DocumentSnippet(text: "SwiftUI uses declarative syntax.",
+                            documentTitle: "intro.md", chunkIndex: 0),
+            DocumentSnippet(text: "State is propagated via @State.",
+                            documentTitle: "state.md", chunkIndex: 1),
+        ])
+        let assembler = ContextAssembler(
+            mode: .agent,
+            budget: ContextBudget(totalTokens: 10_000),
+            documentRetriever: docs
+        )
+        let ctx = await assembler.assemble(
+            messages: [Message(role: .user, content: "how does state work?")],
+            memoryQuery: "how does state work?"
+        )
+        XCTAssertEqual(ctx.documentSnippets.count, 2)
+        XCTAssertTrue(ctx.systemPrompt.contains("Relevant documents"))
+        XCTAssertTrue(ctx.systemPrompt.contains("intro.md"))
+        XCTAssertTrue(ctx.systemPrompt.contains("@State"))
+    }
+
+    func testChatModeIgnoresDocumentRetriever() async {
+        let docs = StubDocumentRetriever(snippets: [
+            DocumentSnippet(text: "should not appear"),
+        ])
+        let assembler = ContextAssembler(
+            mode: .chat,
+            budget: ContextBudget(totalTokens: 10_000),
+            documentRetriever: docs
+        )
+        let ctx = await assembler.assemble(
+            messages: [Message(role: .user, content: "hi")],
+            memoryQuery: "hi"
+        )
+        XCTAssertTrue(ctx.documentSnippets.isEmpty)
+        XCTAssertFalse(ctx.systemPrompt.contains("should not appear"))
+    }
+
+    func testAgentModeRunsMemoryAndDocumentRetrievalTogether() async {
+        let mem = StubMemoryRetriever(snippets: [
+            MemorySnippet(text: "prior note", source: "notes"),
+        ])
+        let docs = StubDocumentRetriever(snippets: [
+            DocumentSnippet(text: "relevant doc excerpt", documentTitle: "doc.md"),
+        ])
+        let assembler = ContextAssembler(
+            mode: .agent,
+            budget: ContextBudget(totalTokens: 10_000),
+            memoryRetriever: mem,
+            documentRetriever: docs
+        )
+        let ctx = await assembler.assemble(
+            messages: [Message(role: .user, content: "q")],
+            memoryQuery: "q"
+        )
+        XCTAssertEqual(ctx.memorySnippets.count, 1)
+        XCTAssertEqual(ctx.documentSnippets.count, 1)
+        XCTAssertTrue(ctx.systemPrompt.contains("prior note"))
+        XCTAssertTrue(ctx.systemPrompt.contains("relevant doc excerpt"))
     }
 }
