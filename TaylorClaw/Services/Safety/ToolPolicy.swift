@@ -69,19 +69,24 @@ struct ToolPolicy: Sendable, Hashable {
 
     /// Default policy bundled with Taylor Claw, with MemPalace tool names
     /// pre-classified so the heuristic's guesses don't override them.
+    ///
+    /// Tool names match MemPalace's `mcp_server` exports — the
+    /// `mempalace_*` prefix.
     static let `default` = ToolPolicy(
         overrides: [
-            // MemPalace read tools
-            "retrieve_memory":   .safe,
-            "search_memories":   .safe,
-            "list_memories":     .safe,
-            "get_memory":        .safe,
-            // MemPalace write tools
-            "store_memory":      .caution,
-            "update_memory":     .caution,
-            // MemPalace destructive tools
-            "delete_memory":     .destructive,
-            "clear_memories":    .destructive,
+            // Read — palace introspection + semantic search.
+            "mempalace_status":          .safe,
+            "mempalace_list_wings":      .safe,
+            "mempalace_list_rooms":      .safe,
+            "mempalace_get_taxonomy":    .safe,
+            "mempalace_search":          .safe,
+            "mempalace_check_duplicate": .safe,
+            // Write — reversible drawer additions.
+            "mempalace_add_drawer":      .caution,
+            "mempalace_update_drawer":   .caution,
+            // Destructive — drawer / palace removal.
+            "mempalace_delete_drawer":   .destructive,
+            "mempalace_clear_palace":    .destructive,
         ]
     )
 }

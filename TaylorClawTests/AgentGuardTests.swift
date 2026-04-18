@@ -25,7 +25,7 @@ final class AgentGuardTests: XCTestCase {
     func testSafeToolAutoApproved() async throws {
         let (g, log) = makeGuard()
         try await g.authorize(
-            toolName: "retrieve_memory",
+            toolName: "mempalace_search",
             serverName: "mempalace",
             arguments: .object(["q": .string("x")])
         )
@@ -39,11 +39,11 @@ final class AgentGuardTests: XCTestCase {
 
     func testCautionToolPromptsOnce() async throws {
         let scripted = ScriptedPrompter(
-            script: ["store_memory": [.allowOnce]],
+            script: ["mempalace_add_drawer": [.allowOnce]],
             fallback: .deny
         )
         let (g, log) = makeGuard(prompter: scripted)
-        try await g.authorize(toolName: "store_memory", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_add_drawer", serverName: "mempalace")
         let seen = await scripted.seen
         XCTAssertEqual(seen.count, 1)
         let entries = await log.all()
@@ -52,13 +52,13 @@ final class AgentGuardTests: XCTestCase {
 
     func testCautionToolSessionApprovalCachedForSubsequentCalls() async throws {
         let scripted = ScriptedPrompter(
-            script: ["store_memory": [.allowForSession]],
+            script: ["mempalace_add_drawer": [.allowForSession]],
             fallback: .deny
         )
         let (g, log) = makeGuard(prompter: scripted)
-        try await g.authorize(toolName: "store_memory", serverName: "mempalace")
-        try await g.authorize(toolName: "store_memory", serverName: "mempalace")
-        try await g.authorize(toolName: "store_memory", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_add_drawer", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_add_drawer", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_add_drawer", serverName: "mempalace")
         let seen = await scripted.seen
         XCTAssertEqual(seen.count, 1, "Should only prompt once per session")
         let entries = await log.all()
@@ -71,10 +71,10 @@ final class AgentGuardTests: XCTestCase {
     func testCautionDeniedThrows() async {
         let (g, log) = makeGuard(prompter: AutoDenyPrompter())
         do {
-            try await g.authorize(toolName: "store_memory", serverName: "mempalace")
+            try await g.authorize(toolName: "mempalace_add_drawer", serverName: "mempalace")
             XCTFail("Expected denial to throw")
         } catch SafetyError.denied(let t) {
-            XCTAssertEqual(t, "store_memory")
+            XCTAssertEqual(t, "mempalace_add_drawer")
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -86,16 +86,16 @@ final class AgentGuardTests: XCTestCase {
 
     func testDestructivePromptsEveryCallEvenIfPreviouslyApproved() async throws {
         let scripted = ScriptedPrompter(
-            script: ["delete_memory": [.allowForSession, .allowForSession, .allowForSession]],
+            script: ["mempalace_delete_drawer": [.allowForSession, .allowForSession, .allowForSession]],
             fallback: .deny
         )
         let (g, _) = makeGuard(prompter: scripted)
-        try await g.authorize(toolName: "delete_memory", serverName: "mempalace")
-        try await g.authorize(toolName: "delete_memory", serverName: "mempalace")
-        try await g.authorize(toolName: "delete_memory", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_delete_drawer", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_delete_drawer", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_delete_drawer", serverName: "mempalace")
         let seen = await scripted.seen
         XCTAssertEqual(seen.count, 3, "Destructive must prompt every time")
-        let approved = await g.isApprovedForSession("delete_memory")
+        let approved = await g.isApprovedForSession("mempalace_delete_drawer")
         XCTAssertFalse(approved, "Destructive must never remember approval")
     }
 
@@ -126,11 +126,11 @@ final class AgentGuardTests: XCTestCase {
             prompter: AutoApprovePrompter(),
             maxCallsPerTool: 3
         )
-        try await g.authorize(toolName: "retrieve_memory", serverName: "mempalace")
-        try await g.authorize(toolName: "retrieve_memory", serverName: "mempalace")
-        try await g.authorize(toolName: "retrieve_memory", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_search", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_search", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_search", serverName: "mempalace")
         do {
-            try await g.authorize(toolName: "retrieve_memory", serverName: "mempalace")
+            try await g.authorize(toolName: "mempalace_search", serverName: "mempalace")
             XCTFail("Expected loop limit")
         } catch SafetyError.loopLimitExceeded(_, let limit) {
             XCTAssertEqual(limit, 3)
@@ -143,20 +143,20 @@ final class AgentGuardTests: XCTestCase {
 
     func testResetClearsState() async throws {
         let scripted = ScriptedPrompter(
-            script: ["store_memory": [.allowForSession, .allowForSession]],
+            script: ["mempalace_add_drawer": [.allowForSession, .allowForSession]],
             fallback: .deny
         )
         let (g, _) = makeGuard(prompter: scripted)
-        try await g.authorize(toolName: "store_memory", serverName: "mempalace")
-        let approvedBefore = await g.isApprovedForSession("store_memory")
+        try await g.authorize(toolName: "mempalace_add_drawer", serverName: "mempalace")
+        let approvedBefore = await g.isApprovedForSession("mempalace_add_drawer")
         XCTAssertTrue(approvedBefore)
 
         await g.reset()
 
-        let approvedAfter = await g.isApprovedForSession("store_memory")
+        let approvedAfter = await g.isApprovedForSession("mempalace_add_drawer")
         XCTAssertFalse(approvedAfter)
         // After reset, we should prompt again.
-        try await g.authorize(toolName: "store_memory", serverName: "mempalace")
+        try await g.authorize(toolName: "mempalace_add_drawer", serverName: "mempalace")
         let seen = await scripted.seen
         XCTAssertEqual(seen.count, 2)
     }
@@ -166,12 +166,12 @@ final class AgentGuardTests: XCTestCase {
     func testRecordResultAppendsToLog() async {
         let (g, log) = makeGuard()
         await g.recordResult(
-            toolName: "retrieve_memory",
+            toolName: "mempalace_search",
             serverName: "mempalace",
             success: true
         )
         await g.recordResult(
-            toolName: "retrieve_memory",
+            toolName: "mempalace_search",
             serverName: "mempalace",
             success: false,
             error: "timeout"

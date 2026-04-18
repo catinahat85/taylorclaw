@@ -8,6 +8,8 @@ struct Conversation: Identifiable, Codable, Hashable, Sendable {
     var updatedAt: Date
     var lastProviderID: String?
     var lastModelID: String?
+    /// Chat vs. agent. Defaults to `.chat` for records written by v0.1.
+    var mode: ChatMode
 
     init(
         id: UUID = UUID(),
@@ -16,7 +18,8 @@ struct Conversation: Identifiable, Codable, Hashable, Sendable {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         lastProviderID: String? = nil,
-        lastModelID: String? = nil
+        lastModelID: String? = nil,
+        mode: ChatMode = .chat
     ) {
         self.id = id
         self.title = title
@@ -25,6 +28,7 @@ struct Conversation: Identifiable, Codable, Hashable, Sendable {
         self.updatedAt = updatedAt
         self.lastProviderID = lastProviderID
         self.lastModelID = lastModelID
+        self.mode = mode
     }
 
     var lastMessagePreview: String {
@@ -34,4 +38,24 @@ struct Conversation: Identifiable, Codable, Hashable, Sendable {
     }
 
     var isEmpty: Bool { messages.isEmpty }
+
+    // MARK: - Codable (migration-aware)
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, messages, createdAt, updatedAt
+        case lastProviderID, lastModelID, mode
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(UUID.self, forKey: .id)
+        self.title = try c.decode(String.self, forKey: .title)
+        self.messages = try c.decode([Message].self, forKey: .messages)
+        self.createdAt = try c.decode(Date.self, forKey: .createdAt)
+        self.updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        self.lastProviderID = try c.decodeIfPresent(String.self, forKey: .lastProviderID)
+        self.lastModelID = try c.decodeIfPresent(String.self, forKey: .lastModelID)
+        // v0.1 records have no `mode` field — default to chat.
+        self.mode = try c.decodeIfPresent(ChatMode.self, forKey: .mode) ?? .chat
+    }
 }

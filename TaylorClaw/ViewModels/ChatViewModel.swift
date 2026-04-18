@@ -30,6 +30,17 @@ final class ChatViewModel {
         !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isStreaming
     }
 
+    /// Binding-friendly mode accessor. Writes persist the conversation so
+    /// the mode survives across sessions.
+    var mode: ChatMode {
+        get { conversation.mode }
+        set {
+            guard conversation.mode != newValue else { return }
+            conversation.mode = newValue
+            persist()
+        }
+    }
+
     func send() {
         let trimmed = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isStreaming else { return }

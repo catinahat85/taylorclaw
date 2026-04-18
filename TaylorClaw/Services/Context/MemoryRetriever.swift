@@ -28,8 +28,9 @@ struct NoMemoryRetriever: MemoryRetriever {
 
 /// Retrieves memory by calling an MCP tool on the MemPalace server.
 ///
-/// The tool name defaults to `retrieve_memory`, which matches MemPalace's
-/// default. Override `toolName` if you point at a different server.
+/// The tool name defaults to `mempalace_search`, MemPalace's semantic
+/// search across all drawers. Override `toolName` if you point at a
+/// different server.
 actor MCPMemoryRetriever: MemoryRetriever {
     private let client: MCPClient
     private let toolName: String
@@ -38,7 +39,7 @@ actor MCPMemoryRetriever: MemoryRetriever {
 
     init(
         client: MCPClient,
-        toolName: String = "retrieve_memory",
+        toolName: String = "mempalace_search",
         queryArgKey: String = "query",
         limitArgKey: String = "limit"
     ) {
