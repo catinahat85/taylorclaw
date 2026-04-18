@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsWindow: View {
     @Bindable var viewModel: SettingsViewModel
+    @Bindable var documentsViewModel: DocumentsViewModel
     @ObservedObject var preferences: Preferences
 
     var body: some View {
@@ -17,6 +18,9 @@ struct SettingsWindow: View {
                 )
                 .tabItem { Label(provider.displayName, systemImage: icon(for: provider)) }
             }
+
+            DocumentsSettingsView(viewModel: documentsViewModel)
+                .tabItem { Label("Documents", systemImage: "doc.text") }
 
             AdvancedSettingsView()
                 .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }

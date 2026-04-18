@@ -15,6 +15,7 @@ final class ChatViewModelStore {
 struct MainWindow: View {
     @Bindable var listViewModel: ConversationListViewModel
     @Bindable var settingsViewModel: SettingsViewModel
+    @Bindable var documentsViewModel: DocumentsViewModel
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var preferences: Preferences
 
@@ -54,6 +55,9 @@ struct MainWindow: View {
                 openRouterModels: openRouterModels,
                 onChange: { updated in
                     listViewModel.applyChanges(from: updated)
+                },
+                onAttach: { urls in
+                    Task { await documentsViewModel.add(urls: urls) }
                 }
             )
             .id(convo.id)

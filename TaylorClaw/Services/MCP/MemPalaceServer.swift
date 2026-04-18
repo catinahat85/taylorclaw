@@ -66,4 +66,12 @@ actor MemPalaceServer {
         guard let c = client else { return NoDocumentRetriever() }
         return MCPDocumentRetriever(client: c)
     }
+
+    /// Returns an `MCPDocumentUploader` bound to this server if it is running,
+    /// otherwise nil — callers fall back to local-only ingest (metadata in
+    /// `DocumentStore` but no embeddings on the MemPalace side).
+    func documentUploader() -> (any DocumentUploader)? {
+        guard let c = client else { return nil }
+        return MCPDocumentUploader(client: c)
+    }
 }

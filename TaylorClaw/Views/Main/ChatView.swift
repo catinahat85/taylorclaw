@@ -6,6 +6,7 @@ struct ChatView: View {
     let ollamaModels: [LLMModel]
     let openRouterModels: [LLMModel]
     let onChange: (ChatViewModel) -> Void
+    let onAttach: ([URL]) -> Void
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -21,7 +22,8 @@ struct ChatView: View {
                         viewModel.send()
                         onChange(viewModel)
                     },
-                    onStop: { viewModel.stop() }
+                    onStop: { viewModel.stop() },
+                    onAttach: onAttach
                 )
             }
             if let error = viewModel.errorMessage {

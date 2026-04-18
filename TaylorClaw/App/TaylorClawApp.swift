@@ -5,6 +5,7 @@ struct TaylorClawApp: App {
     @StateObject private var preferences = Preferences.shared
     @State private var listViewModel = ConversationListViewModel()
     @State private var settingsViewModel = SettingsViewModel()
+    @State private var documentsViewModel = DocumentsViewModel()
     @State private var runtimeManager = RuntimeManager.shared
     @State private var showRuntimeSheet = false
 
@@ -13,6 +14,7 @@ struct TaylorClawApp: App {
             MainWindow(
                 listViewModel: listViewModel,
                 settingsViewModel: settingsViewModel,
+                documentsViewModel: documentsViewModel,
                 preferences: preferences
             )
             .frame(minWidth: 600, minHeight: 500)
@@ -58,8 +60,12 @@ struct TaylorClawApp: App {
         }
 
         Settings {
-            SettingsWindow(viewModel: settingsViewModel, preferences: preferences)
-                .preferredColorScheme(preferences.appearance.colorScheme)
+            SettingsWindow(
+                viewModel: settingsViewModel,
+                documentsViewModel: documentsViewModel,
+                preferences: preferences
+            )
+            .preferredColorScheme(preferences.appearance.colorScheme)
         }
     }
 }
