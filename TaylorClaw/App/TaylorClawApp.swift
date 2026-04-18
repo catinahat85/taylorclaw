@@ -5,6 +5,8 @@ struct TaylorClawApp: App {
     @StateObject private var preferences = Preferences.shared
     @State private var listViewModel = ConversationListViewModel()
     @State private var settingsViewModel = SettingsViewModel()
+    @State private var runtimeManager = RuntimeManager.shared
+    @State private var showRuntimeSheet = false
 
     var body: some Scene {
         Window("Taylor Claw", id: "main") {
@@ -15,6 +17,18 @@ struct TaylorClawApp: App {
             )
             .frame(minWidth: 600, minHeight: 500)
             .preferredColorScheme(preferences.appearance.colorScheme)
+            .sheet(isPresented: $showRuntimeSheet) {
+                RuntimeInstallSheet(manager: runtimeManager) {
+                    preferences.hasSkippedRuntimeInstall = true
+                }
+            }
+            .task {
+                // Give RuntimeManager time to load its manifest from disk.
+                try? await Task.sleep(for: .milliseconds(200))
+                if !runtimeManager.isInstalled && !preferences.hasSkippedRuntimeInstall {
+                    showRuntimeSheet = true
+                }
+            }
         }
         .defaultSize(width: 900, height: 700)
         .commands {

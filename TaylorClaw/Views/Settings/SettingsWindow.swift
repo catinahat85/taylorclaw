@@ -17,8 +17,11 @@ struct SettingsWindow: View {
                 )
                 .tabItem { Label(provider.displayName, systemImage: icon(for: provider)) }
             }
+
+            AdvancedSettingsView()
+                .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
         }
-        .frame(width: 560, height: 420)
+        .frame(width: 560, height: 460)
         .task { await viewModel.load() }
     }
 

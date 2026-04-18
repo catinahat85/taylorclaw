@@ -36,6 +36,8 @@ final class Preferences: ObservableObject {
 
     @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
 
+    @AppStorage("hasSkippedRuntimeInstall") var hasSkippedRuntimeInstall: Bool = false
+
     @AppStorage("openRouterModelIDs") private var openRouterModelIDsRaw: String = ""
 
     var appearance: AppearanceOverride {
