@@ -18,10 +18,13 @@ struct SettingsWindow: View {
                 .tabItem { Label(provider.displayName, systemImage: icon(for: provider)) }
             }
 
+            MCPServersSettingsView()
+                .tabItem { Label("MCP Servers", systemImage: "server.rack") }
+
             AdvancedSettingsView()
                 .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
         }
-        .frame(width: 560, height: 460)
+        .frame(width: 640, height: 540)
         .task { await viewModel.load() }
     }
 
