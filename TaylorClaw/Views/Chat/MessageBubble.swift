@@ -13,7 +13,13 @@ struct MessageBubble: View {
             if message.role == .user { Spacer(minLength: 48) }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
-                bubble
+                if !message.content.isEmpty || message.toolCalls.isEmpty {
+                    bubble
+                }
+                ForEach(message.toolCalls) { call in
+                    ToolCallView(call: call)
+                        .frame(maxWidth: 640, alignment: .leading)
+                }
                 metadata
                     .opacity(isHovering ? 1 : 0)
                     .animation(.easeInOut(duration: 0.15), value: isHovering)

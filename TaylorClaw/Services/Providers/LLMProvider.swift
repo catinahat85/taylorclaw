@@ -4,6 +4,7 @@ struct ChatRequest: Sendable {
     let model: LLMModel
     let messages: [Message]
     let systemPrompt: String?
+    let tools: [MCPTool]
     let temperature: Double?
     let maxTokens: Int?
 
@@ -11,12 +12,14 @@ struct ChatRequest: Sendable {
         model: LLMModel,
         messages: [Message],
         systemPrompt: String? = nil,
+        tools: [MCPTool] = [],
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) {
         self.model = model
         self.messages = messages
         self.systemPrompt = systemPrompt
+        self.tools = tools
         self.temperature = temperature
         self.maxTokens = maxTokens
     }
@@ -24,6 +27,11 @@ struct ChatRequest: Sendable {
 
 enum ChatStreamChunk: Sendable {
     case text(String)
+    /// A tool call has begun. Subsequent `toolInputDelta` events with the
+    /// same id append to the partial JSON input until `toolUseEnd`.
+    case toolUseStart(id: String, name: String)
+    case toolInputDelta(id: String, jsonFragment: String)
+    case toolUseEnd(id: String)
     case done
 }
 
