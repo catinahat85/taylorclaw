@@ -15,6 +15,7 @@ final class ChatViewModelStore {
 struct MainWindow: View {
     @Bindable var listViewModel: ConversationListViewModel
     @Bindable var settingsViewModel: SettingsViewModel
+    @Bindable var documentsViewModel: DocumentsViewModel
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var preferences: Preferences
 
@@ -22,7 +23,7 @@ struct MainWindow: View {
 
     var body: some View {
         NavigationSplitView {
-            Sidebar(viewModel: listViewModel)
+            Sidebar(viewModel: listViewModel, preferences: preferences)
         } detail: {
             detail
         }
@@ -31,7 +32,7 @@ struct MainWindow: View {
             await settingsViewModel.load()
             await listViewModel.reload()
             if listViewModel.conversations.isEmpty {
-                listViewModel.newConversation()
+                listViewModel.newConversation(mode: preferences.defaultChatMode)
             }
         }
     }
@@ -54,6 +55,9 @@ struct MainWindow: View {
                 openRouterModels: openRouterModels,
                 onChange: { updated in
                     listViewModel.applyChanges(from: updated)
+                },
+                onAttach: { urls in
+                    Task { await documentsViewModel.add(urls: urls) }
                 }
             )
             .id(convo.id)
@@ -62,7 +66,7 @@ struct MainWindow: View {
                 title: "No conversation selected",
                 subtitle: "Pick one from the sidebar or start a new one.",
                 actionTitle: "New Chat",
-                action: { listViewModel.newConversation() }
+                action: { listViewModel.newConversation(mode: preferences.defaultChatMode) }
             )
         }
     }

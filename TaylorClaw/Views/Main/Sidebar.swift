@@ -2,6 +2,7 @@ import SwiftUI
 
 struct Sidebar: View {
     @Bindable var viewModel: ConversationListViewModel
+    @ObservedObject var preferences: Preferences
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,7 +21,7 @@ struct Sidebar: View {
                 .font(.headline)
             Spacer()
             Button {
-                viewModel.newConversation()
+                viewModel.newConversation(mode: preferences.defaultChatMode)
             } label: {
                 Image(systemName: "square.and.pencil")
             }

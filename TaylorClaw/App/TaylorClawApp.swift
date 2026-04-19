@@ -5,6 +5,7 @@ struct TaylorClawApp: App {
     @StateObject private var preferences = Preferences.shared
     @State private var listViewModel = ConversationListViewModel()
     @State private var settingsViewModel = SettingsViewModel()
+    @State private var documentsViewModel = DocumentsViewModel()
     @State private var runtimeManager = RuntimeManager.shared
     @State private var memoryViewModel = MemoryBrowserViewModel()
     @State private var showRuntimeSheet = false
@@ -15,6 +16,7 @@ struct TaylorClawApp: App {
             MainWindow(
                 listViewModel: listViewModel,
                 settingsViewModel: settingsViewModel,
+                documentsViewModel: documentsViewModel,
                 preferences: preferences
             )
             .frame(minWidth: 600, minHeight: 500)
@@ -30,13 +32,16 @@ struct TaylorClawApp: App {
                 if !runtimeManager.isInstalled && !preferences.hasSkippedRuntimeInstall {
                     showRuntimeSheet = true
                 }
+                if runtimeManager.isInstalled {
+                    try? await MemPalaceServer.shared.start()
+                }
             }
         }
         .defaultSize(width: 900, height: 700)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Chat") {
-                    listViewModel.newConversation()
+                    listViewModel.newConversation(mode: preferences.defaultChatMode)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
@@ -70,8 +75,12 @@ struct TaylorClawApp: App {
         .defaultSize(width: 900, height: 620)
 
         Settings {
-            SettingsWindow(viewModel: settingsViewModel, preferences: preferences)
-                .preferredColorScheme(preferences.appearance.colorScheme)
+            SettingsWindow(
+                viewModel: settingsViewModel,
+                documentsViewModel: documentsViewModel,
+                preferences: preferences
+            )
+            .preferredColorScheme(preferences.appearance.colorScheme)
         }
     }
 }

@@ -6,6 +6,7 @@ struct ChatView: View {
     let ollamaModels: [LLMModel]
     let openRouterModels: [LLMModel]
     let onChange: (ChatViewModel) -> Void
+    let onAttach: ([URL]) -> Void
 
     private let agent = AgentSession.shared
 
@@ -26,7 +27,8 @@ struct ChatView: View {
                         viewModel.send()
                         onChange(viewModel)
                     },
-                    onStop: { viewModel.stop() }
+                    onStop: { viewModel.stop() },
+                    onAttach: onAttach
                 )
             }
             if let error = viewModel.errorMessage {

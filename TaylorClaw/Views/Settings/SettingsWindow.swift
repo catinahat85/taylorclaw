@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsWindow: View {
     @Bindable var viewModel: SettingsViewModel
+    @Bindable var documentsViewModel: DocumentsViewModel
     @ObservedObject var preferences: Preferences
 
     var body: some View {

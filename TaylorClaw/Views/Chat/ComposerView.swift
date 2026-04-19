@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ComposerView: View {
     @Binding var text: String
@@ -6,8 +7,10 @@ struct ComposerView: View {
     let canSend: Bool
     let onSend: () -> Void
     let onStop: () -> Void
+    let onAttach: ([URL]) -> Void
 
     @FocusState private var isFocused: Bool
+    @State private var showImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,15 +53,29 @@ struct ComposerView: View {
 
     private var attachButton: some View {
         Button {
+            showImporter = true
         } label: {
             Image(systemName: "paperclip")
                 .font(.system(size: 16))
         }
         .buttonStyle(.plain)
-        .disabled(true)
-        .help("File attachments coming in v0.2")
+        .help("Add documents to your knowledge base (used in Agent mode)")
         .frame(width: 32, height: 32)
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: Self.allowedTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result {
+                onAttach(urls)
+            }
+        }
     }
+
+    private static let allowedTypes: [UTType] = [
+        .plainText, .text, .pdf, .rtf, .html,
+        .json, .yaml, .sourceCode, .swiftSource,
+    ]
 
     @ViewBuilder
     private var actionButton: some View {
