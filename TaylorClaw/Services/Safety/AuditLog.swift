@@ -13,7 +13,7 @@ actor AuditLog {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    init(fileURL: URL?) {
+    nonisolated init(fileURL: URL?) {
         self.fileURL = fileURL
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
@@ -22,7 +22,17 @@ actor AuditLog {
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
         self.decoder = dec
-        loadFromDisk()
+        var cache: [AuditEntry] = []
+        defer { self.entries = cache }
+        guard let url = fileURL,
+              let data = try? Data(contentsOf: url),
+              let text = String(data: data, encoding: .utf8) else { return }
+        for line in text.split(whereSeparator: \.isNewline) {
+            if let lineData = line.data(using: .utf8),
+               let entry = try? dec.decode(AuditEntry.self, from: lineData) {
+                cache.append(entry)
+            }
+        }
     }
 
     static func defaultURL() -> URL {
@@ -53,18 +63,6 @@ actor AuditLog {
     }
 
     // MARK: - Disk
-
-    private func loadFromDisk() {
-        guard let url = fileURL,
-              let data = try? Data(contentsOf: url),
-              let text = String(data: data, encoding: .utf8) else { return }
-        for line in text.split(whereSeparator: \.isNewline) {
-            if let lineData = line.data(using: .utf8),
-               let entry = try? decoder.decode(AuditEntry.self, from: lineData) {
-                entries.append(entry)
-            }
-        }
-    }
 
     private func writeAppend(_ entry: AuditEntry) {
         guard let url = fileURL,
