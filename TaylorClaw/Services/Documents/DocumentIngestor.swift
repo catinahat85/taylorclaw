@@ -7,7 +7,9 @@ import CryptoKit
 ///   1. Read file → plain text (via `DocumentReader`).
 ///   2. SHA-256 hash the text; skip if a matching document already exists.
 ///   3. Chunk (via `DocumentChunker`).
-///   4. Call the configured MCP tool per chunk (default `add_document`).
+///   4. Call the configured MCP tool per chunk (default
+///      `mempalace_add_drawer`, filed into the `documents` wing with the
+///      filename as the room).
 ///   5. Persist a `Document` record with status / chunk count.
 ///
 /// Pass `client: nil` (or a no-op) to ingest locally without uploading —
@@ -127,16 +129,24 @@ protocol DocumentUploader: Sendable {
     ) async throws -> String
 }
 
-/// MemPalace-flavored uploader. Calls `add_document` per chunk (MemPalace
-/// groups them by the `document_id` metadata key), returning the
-/// generated ID so the store can link back.
+/// MemPalace-flavored uploader. Files each chunk as a drawer under the
+/// `documents` wing, with the filename as the room. The returned
+/// `externalID` is a synthetic UUID used only to join back to the local
+/// `Document` record — MemPalace itself keys drawers by a SHA256 of
+/// (wing, room, content).
 actor MCPDocumentUploader: DocumentUploader {
     private let client: MCPClient
     private let toolName: String
+    private let wing: String
 
-    init(client: MCPClient, toolName: String = "add_document") {
+    init(
+        client: MCPClient,
+        toolName: String = "mempalace_add_drawer",
+        wing: String = MCPDocumentRetriever.defaultWing
+    ) {
         self.client = client
         self.toolName = toolName
+        self.wing = wing
     }
 
     func upload(
@@ -145,16 +155,13 @@ actor MCPDocumentUploader: DocumentUploader {
         metadata: [String: String]
     ) async throws -> String {
         let documentID = UUID().uuidString
-        var meta = metadata
-        meta["document_id"] = documentID
-        meta["title"] = title
+        let room = metadata["filename"] ?? title
 
         for (idx, chunk) in chunks.enumerated() {
-            var chunkMeta = meta
-            chunkMeta["chunk_index"] = String(idx)
             let args: JSONValue = .object([
                 "content": .string(chunk),
-                "metadata": .object(chunkMeta.mapValues { JSONValue.string($0) }),
+                "wing": .string(wing),
+                "room": .string(room),
             ])
             let result = try await client.callTool(name: toolName, arguments: args)
             if result.isError == true {
