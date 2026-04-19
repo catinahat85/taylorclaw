@@ -28,7 +28,7 @@ actor MCPClient {
     private(set) var serverInfo: MCPServerInfo?
 
     private var nextID: Int64 = 1
-    private var pending: [Int64: CheckedContinuation<JSONValue, Error>] = [:]
+    private var pending: [Int64: CheckedContinuation<JSONValue, any Error>] = [:]
     private var readerTask: Task<Void, Never>?
     private var exitWatcher: Task<Void, Never>?
 
@@ -149,7 +149,7 @@ actor MCPClient {
         }
 
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<JSONValue, Error>) in
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<JSONValue, any Error>) in
                 pending[id] = cont
                 Task.detached { [weak self] in
                     do {
@@ -164,7 +164,7 @@ actor MCPClient {
         }
     }
 
-    private func failPending(id: Int64, error: Error) {
+    private func failPending(id: Int64, error: any Error) {
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: error)
         }
@@ -187,7 +187,7 @@ actor MCPClient {
 
     private func startReader(transport: MCPTransport) {
         readerTask = Task.detached { [weak self] in
-            for await data in await transport.incoming {
+            for await data in transport.incoming {
                 await self?.handleIncoming(data)
             }
             await self?.handleStreamEnd()
@@ -227,7 +227,7 @@ actor MCPClient {
         failAllPending(with: MCPError.processExited(status))
     }
 
-    private func failAllPending(with error: Error) {
+    private func failAllPending(with error: any Error) {
         let items = pending
         pending.removeAll()
         for (_, cont) in items {
