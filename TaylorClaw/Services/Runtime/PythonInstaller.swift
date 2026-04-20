@@ -214,7 +214,7 @@ actor PythonInstaller {
                 includingPropertiesForKeys: [.fileAllocatedSizeKey],
                 options: .skipsHiddenFiles
             ) {
-                for case let fileURL as URL in enumerator {
+                while let fileURL = enumerator.nextObject() as? URL {
                     let size = (try? fileURL.resourceValues(forKeys: [.fileAllocatedSizeKey]))?
                         .fileAllocatedSize ?? 0
                     total += Int64(size)
