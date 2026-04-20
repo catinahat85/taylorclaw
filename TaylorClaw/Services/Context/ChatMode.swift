@@ -3,7 +3,7 @@ import Foundation
 /// How Taylor Claw treats an outgoing message:
 /// - `.chat` is the v0.1 behavior — stateless, no tools, no memory.
 /// - `.agent` enables MCP tool calls, memory retrieval, and document RAG.
-enum ChatMode: String, Codable, Sendable, CaseIterable, Identifiable {
+enum ChatMode: String, Codable, Sendable, CaseIterable, Identifiable, Equatable, Hashable {
     case chat
     case agent
 
