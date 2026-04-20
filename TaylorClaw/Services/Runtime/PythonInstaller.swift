@@ -205,21 +205,23 @@ actor PythonInstaller {
     // MARK: - Disk usage
 
     func diskUsageString() async -> String {
-        let url = RuntimeConstants.runtimeDir
-        guard FileManager.default.fileExists(atPath: url.path) else { return "Not installed" }
-        var total: Int64 = 0
-        if let enumerator = FileManager.default.enumerator(
-            at: url,
-            includingPropertiesForKeys: [.fileAllocatedSizeKey],
-            options: .skipsHiddenFiles
-        ) {
-            for case let fileURL as URL in enumerator {
-                let size = (try? fileURL.resourceValues(forKeys: [.fileAllocatedSizeKey]))?
-                    .fileAllocatedSize ?? 0
-                total += Int64(size)
+        await Task.detached(priority: .utility) {
+            let url = RuntimeConstants.runtimeDir
+            guard FileManager.default.fileExists(atPath: url.path) else { return "Not installed" }
+            var total: Int64 = 0
+            if let enumerator = FileManager.default.enumerator(
+                at: url,
+                includingPropertiesForKeys: [.fileAllocatedSizeKey],
+                options: .skipsHiddenFiles
+            ) {
+                for case let fileURL as URL in enumerator {
+                    let size = (try? fileURL.resourceValues(forKeys: [.fileAllocatedSizeKey]))?
+                        .fileAllocatedSize ?? 0
+                    total += Int64(size)
+                }
             }
-        }
-        return ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
+            return ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
+        }.value
     }
 
     // MARK: - Private helpers

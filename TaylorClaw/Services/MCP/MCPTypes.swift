@@ -17,7 +17,7 @@ enum JSONValue: Sendable, Hashable {
 }
 
 extension JSONValue: Codable {
-    init(from decoder: Decoder) throws {
+    init(from decoder: any Decoder) throws {
         let c = try decoder.singleValueContainer()
         if c.decodeNil() { self = .null; return }
         if let b = try? c.decode(Bool.self) { self = .bool(b); return }
