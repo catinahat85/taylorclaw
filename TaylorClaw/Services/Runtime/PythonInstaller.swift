@@ -104,11 +104,9 @@ actor PythonInstaller {
         // file extracted from a URLSession-downloaded archive. Without this,
         // Process.run() fails with NSCocoaErrorDomain Code=4 "python3 doesn't
         // exist" when attempting to launch the Python binary.
-        appendLog("stripping com.apple.quarantine from \(RuntimeConstants.pythonDir.path)\n")
-        _ = try? await shell("/usr/bin/xattr",
-                             "-r", "-d", "com.apple.quarantine",
-                             RuntimeConstants.pythonDir.path,
-                             emit: emit)
+        // Use removexattr() directly rather than a subprocess — the subprocess
+        // inherits the App Sandbox and the silent `try?` swallows failures.
+        stripQuarantine(at: RuntimeConstants.pythonDir)
 
         let python3Exists = fm.fileExists(atPath: RuntimeConstants.python3.path)
         appendLog("extraction done. python3 at \(RuntimeConstants.python3.path) exists: \(python3Exists)\n")
@@ -397,6 +395,24 @@ actor PythonInstaller {
         guard FileManager.default.fileExists(atPath: url.path) else { return "" }
         let data = try Data(contentsOf: url)
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func stripQuarantine(at url: URL) {
+        appendLog("stripQuarantine: scanning \(url.path)\n")
+        var count = 0
+        func strip(_ path: String) {
+            // Strip on the resolved file (follows symlinks).
+            if removexattr(path, "com.apple.quarantine", 0) == 0 { count += 1 }
+            // Also strip on the symlink node itself (XATTR_NOFOLLOW = 1).
+            removexattr(path, "com.apple.quarantine", XATTR_NOFOLLOW)
+        }
+        strip(url.path)
+        if let enumerator = FileManager.default.enumerator(
+            at: url, includingPropertiesForKeys: nil
+        ) {
+            for case let item as URL in enumerator { strip(item.path) }
+        }
+        appendLog("stripQuarantine: done — \(count) files had attribute\n")
     }
 
     private func appendLog(_ line: String) {
