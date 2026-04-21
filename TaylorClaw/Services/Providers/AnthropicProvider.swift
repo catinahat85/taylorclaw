@@ -191,7 +191,7 @@ struct AnthropicProvider: LLMProvider {
             case toolUse(id: String, name: String, input: JSONValue)
             case toolResult(toolUseID: String, content: String, isError: Bool)
 
-            func encode(to encoder: Encoder) throws {
+            func encode(to encoder: any Encoder) throws {
                 var c = encoder.container(keyedBy: CodingKeys.self)
                 switch self {
                 case .text(let t):

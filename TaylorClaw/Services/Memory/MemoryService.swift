@@ -190,7 +190,7 @@ actor MemoryService {
         )
     }
 
-    private func recordFailure(tool: String, error: Error) async {
+    private func recordFailure(tool: String, error: any Error) async {
         await guardActor?.recordResult(
             toolName: tool,
             serverName: serverName,
