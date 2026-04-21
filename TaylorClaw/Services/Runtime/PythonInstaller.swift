@@ -99,6 +99,17 @@ actor PythonInstaller {
                         emit: emit)
         try normalizePythonDir()
         try fm.removeItem(at: archiveDest)
+
+        // Strip the com.apple.quarantine xattr Gatekeeper stamps on every
+        // file extracted from a URLSession-downloaded archive. Without this,
+        // Process.run() fails with NSCocoaErrorDomain Code=4 "python3 doesn't
+        // exist" when attempting to launch the Python binary.
+        appendLog("stripping com.apple.quarantine from \(RuntimeConstants.pythonDir.path)\n")
+        _ = try? await shell("/usr/bin/xattr",
+                             "-r", "-d", "com.apple.quarantine",
+                             RuntimeConstants.pythonDir.path,
+                             emit: emit)
+
         let python3Exists = fm.fileExists(atPath: RuntimeConstants.python3.path)
         appendLog("extraction done. python3 at \(RuntimeConstants.python3.path) exists: \(python3Exists)\n")
         if !python3Exists {
