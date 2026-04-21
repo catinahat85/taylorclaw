@@ -320,13 +320,29 @@ actor PythonInstaller {
         try await shellArgs(executable, args, emit: emit)
     }
 
+    /// Thread-safe Data accumulator for subprocess stdout/stderr draining.
+    /// readabilityHandler fires on a background queue; we need a lock so that
+    /// concurrent appends and the final snapshot don't race.
+    private final class DataBuffer: @unchecked Sendable {
+        private let lock = NSLock()
+        private var data = Data()
+        func append(_ new: Data) {
+            lock.lock(); defer { lock.unlock() }
+            data.append(new)
+        }
+        func snapshot() -> Data {
+            lock.lock(); defer { lock.unlock() }
+            return data
+        }
+    }
+
     @discardableResult
     private func shellArgs(_ executable: String, _ args: [String],
                            emit: @escaping EventCallback) async throws -> String {
         let outBox = Box(value: Pipe())
         let errBox = Box(value: Pipe())
-        var outData = Data()
-        var errData = Data()
+        let outData = DataBuffer()
+        let errData = DataBuffer()
 
         let result: String = try await withCheckedThrowingContinuation { continuation in
             let proc = Process()
@@ -353,18 +369,14 @@ actor PythonInstaller {
             }
 
             proc.terminationHandler = { p in
-                // Drain any final data after process exits.
-                if let final = try? outHandle.readDataToEndOfFile() {
-                    outData.append(final)
-                }
-                if let final = try? errHandle.readDataToEndOfFile() {
-                    errData.append(final)
-                }
+                // Stop the handlers and drain anything still buffered.
                 outHandle.readabilityHandler = nil
                 errHandle.readabilityHandler = nil
+                outData.append(outHandle.readDataToEndOfFile())
+                errData.append(errHandle.readDataToEndOfFile())
 
-                let out = String(data: outData, encoding: .utf8) ?? ""
-                let err = String(data: errData, encoding: .utf8) ?? ""
+                let out = String(data: outData.snapshot(), encoding: .utf8) ?? ""
+                let err = String(data: errData.snapshot(), encoding: .utf8) ?? ""
                 if p.terminationStatus == 0 {
                     continuation.resume(returning: out)
                 } else {
