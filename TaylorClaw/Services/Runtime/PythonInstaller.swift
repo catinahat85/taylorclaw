@@ -325,19 +325,46 @@ actor PythonInstaller {
                            emit: @escaping EventCallback) async throws -> String {
         let outBox = Box(value: Pipe())
         let errBox = Box(value: Pipe())
+        var outData = Data()
+        var errData = Data()
+
         let result: String = try await withCheckedThrowingContinuation { continuation in
             let proc = Process()
             proc.executableURL = URL(fileURLWithPath: executable)
             proc.arguments = args
             proc.standardOutput = outBox.value
             proc.standardError = errBox.value
+
+            // Drain pipes asynchronously to prevent buffer deadlock.
+            // readabilityHandler is called whenever data is available, so the pipe
+            // doesn't fill up and block the process from writing.
+            let outHandle = outBox.value.fileHandleForReading
+            outHandle.readabilityHandler = { handle in
+                let data = handle.availableData
+                if data.isEmpty { return }
+                outData.append(data)
+            }
+
+            let errHandle = errBox.value.fileHandleForReading
+            errHandle.readabilityHandler = { handle in
+                let data = handle.availableData
+                if data.isEmpty { return }
+                errData.append(data)
+            }
+
             proc.terminationHandler = { p in
-                let out = String(
-                    data: outBox.value.fileHandleForReading.readDataToEndOfFile(),
-                    encoding: .utf8) ?? ""
-                let err = String(
-                    data: errBox.value.fileHandleForReading.readDataToEndOfFile(),
-                    encoding: .utf8) ?? ""
+                // Drain any final data after process exits.
+                if let final = try? outHandle.readDataToEndOfFile() {
+                    outData.append(final)
+                }
+                if let final = try? errHandle.readDataToEndOfFile() {
+                    errData.append(final)
+                }
+                outHandle.readabilityHandler = nil
+                errHandle.readabilityHandler = nil
+
+                let out = String(data: outData, encoding: .utf8) ?? ""
+                let err = String(data: errData, encoding: .utf8) ?? ""
                 if p.terminationStatus == 0 {
                     continuation.resume(returning: out)
                 } else {
