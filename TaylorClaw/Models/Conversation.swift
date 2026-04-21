@@ -46,7 +46,7 @@ struct Conversation: Identifiable, Codable, Hashable, Sendable {
         case lastProviderID, lastModelID, mode
     }
 
-    init(from decoder: Decoder) throws {
+    init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try c.decode(UUID.self, forKey: .id)
         self.title = try c.decode(String.self, forKey: .title)

@@ -30,7 +30,7 @@ extension JSONValue: Codable {
             in: c, debugDescription: "Unsupported JSON value")
     }
 
-    func encode(to encoder: Encoder) throws {
+    func encode(to encoder: any Encoder) throws {
         var c = encoder.singleValueContainer()
         switch self {
         case .null: try c.encodeNil()
