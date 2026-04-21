@@ -19,15 +19,6 @@ final class ChatViewModel {
     /// Max sequential model turns per send (i.e. tool-use round trips).
     private let maxTurns = 10
 
-    var mode: ChatMode {
-        get { conversation.mode }
-        set {
-            guard conversation.mode != newValue else { return }
-            conversation.mode = newValue
-            persist()
-        }
-    }
-
     init(
         conversation: Conversation,
         selectedModel: LLMModel,
