@@ -12,22 +12,45 @@ actor PythonInstaller {
     // MARK: - Install
 
     func install(onEvent emit: @escaping EventCallback) async throws -> RuntimeManifest {
+        let fm = FileManager.default
+        // Create app-support dir FIRST so we can always append to install.log,
+        // even if a later step fails.
+        try? fm.createDirectory(at: RuntimeConstants.appSupport,
+                                withIntermediateDirectories: true)
+        appendLog("---- Install started \(Date()) ----\n")
+        appendLog("pythonVersion: \(RuntimeConstants.pythonVersion), buildTag: \(RuntimeConstants.pythonBuildTag)\n")
+        appendLog("archive: \(RuntimeConstants.pythonArchiveFilename)\n")
+
+        do {
+            return try await runInstall(emit: emit, fm: fm)
+        } catch {
+            appendLog("FAILED: \(error)\n")
+            appendLog("localizedDescription: \(error.localizedDescription)\n")
+            throw error
+        }
+    }
+
+    private func runInstall(
+        emit: @escaping EventCallback,
+        fm: FileManager
+    ) async throws -> RuntimeManifest {
+        appendLog("phase: checkingDisk\n")
         emit(.phase(.checkingDisk))
         try checkDiskSpace()
 
-        let fm = FileManager.default
         try fm.createDirectory(at: RuntimeConstants.runtimeDir,
-                               withIntermediateDirectories: true)
-        try fm.createDirectory(at: RuntimeConstants.appSupport,
                                withIntermediateDirectories: true)
 
         // 1. SHA256SUMS
+        appendLog("phase: downloadingPython (sha256sums)\n")
         emit(.phase(.downloadingPython))
         emit(.log("Fetching SHA256SUMS from GitHub…"))
         let (sumsData, _) = try await URLSession.shared.data(from: RuntimeConstants.sha256SumsURL)
+        appendLog("sha256sums fetched: \(sumsData.count) bytes\n")
         let expectedSHA = try parseSHA256(sumsData,
                                          filename: RuntimeConstants.pythonArchiveFilename)
         emit(.log("Expected SHA256: \(expectedSHA)"))
+        appendLog("expectedSHA: \(expectedSHA)\n")
 
         // 2. Download archive
         emit(.log("Downloading \(RuntimeConstants.pythonArchiveFilename)…"))
@@ -37,9 +60,12 @@ actor PythonInstaller {
             try fm.removeItem(at: archiveDest)
         }
         do {
+            appendLog("downloading: \(RuntimeConstants.pythonDownloadURL.absoluteString)\n")
             let (data, resp) = try await URLSession.shared.data(from: RuntimeConstants.pythonDownloadURL)
+            let status = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            appendLog("download response: status=\(status), bytes=\(data.count)\n")
             guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-                throw RuntimeError.downloadFailed("Server returned non-2xx status")
+                throw RuntimeError.downloadFailed("Server returned status \(status)")
             }
             try data.write(to: archiveDest)
             emit(.log("Downloaded \(data.count / 1_000_000) MB."))
@@ -61,6 +87,7 @@ actor PythonInstaller {
         try Task.checkCancellation()
 
         // 4. Extract
+        appendLog("phase: extracting\n")
         emit(.phase(.extracting))
         emit(.log("Extracting Python archive…"))
         if fm.fileExists(atPath: RuntimeConstants.pythonDir.path) {
@@ -72,11 +99,21 @@ actor PythonInstaller {
                         emit: emit)
         try normalizePythonDir()
         try fm.removeItem(at: archiveDest)
+        let python3Exists = fm.fileExists(atPath: RuntimeConstants.python3.path)
+        appendLog("extraction done. python3 at \(RuntimeConstants.python3.path) exists: \(python3Exists)\n")
+        if !python3Exists {
+            // Dump what's actually in the runtime dir so we can see the structure.
+            let contents = (try? fm.contentsOfDirectory(atPath: RuntimeConstants.runtimeDir.path)) ?? []
+            appendLog("runtimeDir contents: \(contents)\n")
+            let pyContents = (try? fm.contentsOfDirectory(atPath: RuntimeConstants.pythonDir.path)) ?? []
+            appendLog("pythonDir contents: \(pyContents)\n")
+        }
         emit(.log("Extraction complete."))
 
         try Task.checkCancellation()
 
         // 5. Create venv
+        appendLog("phase: creatingVenv (python3.path=\(RuntimeConstants.python3.path))\n")
         emit(.phase(.creatingVenv))
         emit(.log("Creating virtual environment…"))
         try await shell(RuntimeConstants.python3.path,
