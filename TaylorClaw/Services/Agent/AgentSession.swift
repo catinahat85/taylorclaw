@@ -88,7 +88,8 @@ final class AgentSession {
 
         status = .starting
         let task = Task { [weak self] in
-            await self?.performStart()
+            guard let self else { return }
+            await self.performStart()
         }
         startTask = task
         await task.value
