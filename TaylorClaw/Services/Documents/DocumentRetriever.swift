@@ -34,35 +34,41 @@ struct NoDocumentRetriever: DocumentRetriever {
     func retrieve(query: String, limit: Int) async throws -> [DocumentSnippet] { [] }
 }
 
-/// Retrieves chunks by calling an MCP tool — by default MemPalace's
-/// `search_documents`.
+/// Retrieves chunks by calling an MCP tool on MemPalace.
+///
+/// MemPalace has no standalone document corpus — document chunks are
+/// stored as drawers in a dedicated wing (default `documents`). This
+/// retriever calls `mempalace_search` filtered to that wing.
 actor MCPDocumentRetriever: DocumentRetriever {
+    static let defaultWing = "documents"
+
     private let client: MCPClient
     private let toolName: String
-    private let queryArgKey: String
-    private let limitArgKey: String
+    private let wing: String?
 
     init(
         client: MCPClient,
-        toolName: String = "search_documents",
-        queryArgKey: String = "query",
-        limitArgKey: String = "limit"
+        toolName: String = "mempalace_search",
+        wing: String? = MCPDocumentRetriever.defaultWing
     ) {
         self.client = client
         self.toolName = toolName
-        self.queryArgKey = queryArgKey
-        self.limitArgKey = limitArgKey
+        self.wing = wing
     }
 
     func retrieve(query: String, limit: Int) async throws -> [DocumentSnippet] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
-        let args: JSONValue = .object([
-            queryArgKey: .string(trimmed),
-            limitArgKey: .int(Int64(limit)),
-        ])
-        let result = try await client.callTool(name: toolName, arguments: args)
+        var fields: [String: JSONValue] = [
+            "query": .string(trimmed),
+            "limit": .int(Int64(limit)),
+        ]
+        if let wing { fields["wing"] = .string(wing) }
+        let result = try await client.callTool(
+            name: toolName,
+            arguments: .object(fields)
+        )
         if result.isError == true { return [] }
         return result.content.compactMap { Self.parse(content: $0) }
     }
