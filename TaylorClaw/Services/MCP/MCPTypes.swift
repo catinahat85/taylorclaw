@@ -64,6 +64,10 @@ struct JSONRPCRequest: Codable, Sendable {
         self.method = method
         self.params = params
     }
+
+    init(id: Int64?, method: String, params: JSONValue?) {
+        self.init(id: id.map(JSONRPCID.int), method: method, params: params)
+    }
 }
 
 struct JSONRPCResponse: Codable, Sendable {
