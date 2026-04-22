@@ -69,7 +69,11 @@ actor MCPTransport {
     /// Write a single JSON message using MCP's `Content-Length` framing.
     func send(_ data: Data) throws {
         guard !isClosed else { throw MCPError.transportClosed }
-        let header = "Content-Length: \(data.count)\r\n\r\n"
+        let header = """
+        Content-Length: \(data.count)\r
+        Content-Type: application/json\r
+        \r
+        """
         var payload = Data(header.utf8)
         payload.append(data)
         try stdinBox.value.write(contentsOf: payload)
@@ -90,8 +94,7 @@ actor MCPTransport {
 
 private extension MCPTransport {
     static func consumeContentLengthMessage(from buffer: inout Data) -> Data? {
-        let separator = Data([0x0D, 0x0A, 0x0D, 0x0A]) // \r\n\r\n
-        guard let headerEndRange = buffer.range(of: separator) else {
+        guard let headerEndRange = headerTerminatorRange(in: buffer) else {
             return nil
         }
         let headerData = buffer.subdata(in: buffer.startIndex..<headerEndRange.lowerBound)
@@ -125,6 +128,15 @@ private extension MCPTransport {
         return body
     }
 
+    static func headerTerminatorRange(in buffer: Data) -> Range<Int>? {
+        let crlf = Data([0x0D, 0x0A, 0x0D, 0x0A]) // \r\n\r\n
+        if let r = buffer.range(of: crlf) {
+            return r
+        }
+        let lf = Data([0x0A, 0x0A]) // \n\n
+        return buffer.range(of: lf)
+    }
+
     static func consumeNewlineDelimitedMessage(from buffer: inout Data) -> Data? {
         if let first = buffer.firstNonWhitespaceASCII {
             // When a framed message begins (`Content-Length: ...`), wait for
@@ -134,9 +146,10 @@ private extension MCPTransport {
             }
         }
         guard let nl = buffer.firstIndex(of: 0x0A) else { return nil }
-        let line = buffer.subdata(in: buffer.startIndex..<nl)
+        var line = buffer.subdata(in: buffer.startIndex..<nl)
         let next = buffer.index(after: nl)
         buffer.removeSubrange(buffer.startIndex..<next)
+        if line.last == 0x0D { line.removeLast() } // tolerate CRLF NDJSON
         return line.isEmpty ? nil : line
     }
 }
