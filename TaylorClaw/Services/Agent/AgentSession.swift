@@ -272,7 +272,7 @@ final class AgentSession {
             case .notInitialized:    return "MCP client not initialized"
             case .alreadyRunning:    return "MCP client already running"
             case .transportClosed:   return "MCP transport closed"
-            case .timeout:           return "Timed out waiting for MemPalace handshake (180s)"
+            case .timeout:           return "Timed out waiting for MemPalace handshake"
             case .rpcError(let c, let msg):    return "RPC error \(c): \(msg)"
             case .decodingError(let d):         return "Decoding error: \(d)"
             case .processExited(let s):         return "Python subprocess exited with status \(s)"

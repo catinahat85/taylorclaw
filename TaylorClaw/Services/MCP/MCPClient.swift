@@ -29,6 +29,7 @@ actor MCPClient {
 
     private var nextID: Int64 = 1
     private var pending: [Int64: CheckedContinuation<JSONValue, any Error>] = [:]
+    private var pendingTimeouts: [Int64: Task<Void, Never>] = [:]
     private var readerTask: Task<Void, Never>?
     private var exitWatcher: Task<Void, Never>?
 
@@ -87,14 +88,16 @@ actor MCPClient {
                     "version": .string(clientVersion),
                 ]),
             ])
-            let initRaw = try await sendRequest("initialize", params: initParams)
+            // Server startup can legitimately take time on first run while Python
+            // imports heavy deps / initializes local state.
+            let initRaw = try await sendRequest("initialize", params: initParams, timeout: 180)
             if let initResult = decode(MCPInitializeResult.self, from: initRaw) {
                 self.serverInfo = initResult.serverInfo
             }
 
             try await sendNotification("notifications/initialized", params: nil)
 
-            let listRaw = try await sendRequest("tools/list", params: .object([:]))
+            let listRaw = try await sendRequest("tools/list", params: .object([:]), timeout: 60)
             if let listResult = decode(MCPToolListResult.self, from: listRaw) {
                 self.tools = listResult.tools
             }
@@ -142,7 +145,11 @@ actor MCPClient {
 
     // MARK: - RPC core
 
-    private func sendRequest(_ method: String, params: JSONValue?) async throws -> JSONValue {
+    private func sendRequest(
+        _ method: String,
+        params: JSONValue?,
+        timeout: TimeInterval = 60
+    ) async throws -> JSONValue {
         guard let transport = transport else { throw MCPError.transportClosed }
 
         let id = nextID
@@ -158,6 +165,13 @@ actor MCPClient {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (cont: CheckedContinuation<JSONValue, any Error>) in
                 pending[id] = cont
+                let timeoutTask = Task.detached { [weak self] in
+                    let nanos = UInt64(max(0, timeout) * 1_000_000_000)
+                    try? await Task.sleep(nanoseconds: nanos)
+                    guard !Task.isCancelled else { return }
+                    await self?.failPending(id: id, error: MCPError.timeout)
+                }
+                pendingTimeouts[id] = timeoutTask
                 Task.detached { [weak self] in
                     do {
                         try await transport.send(data)
@@ -172,6 +186,7 @@ actor MCPClient {
     }
 
     private func failPending(id: Int64, error: any Error) {
+        pendingTimeouts.removeValue(forKey: id)?.cancel()
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: error)
         }
@@ -185,6 +200,7 @@ actor MCPClient {
     }
 
     private func cancelPending(id: Int64) {
+        pendingTimeouts.removeValue(forKey: id)?.cancel()
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: CancellationError())
         }
@@ -213,6 +229,7 @@ actor MCPClient {
         if let resp = try? JSONDecoder().decode(JSONRPCResponse.self, from: data),
            let id = resp.id,
            let cont = pending.removeValue(forKey: id) {
+            pendingTimeouts.removeValue(forKey: id)?.cancel()
             if let err = resp.error {
                 cont.resume(throwing: MCPError.rpcError(code: err.code, message: err.message))
             } else {
@@ -237,6 +254,11 @@ actor MCPClient {
     private func failAllPending(with error: any Error) {
         let items = pending
         pending.removeAll()
+        let timeoutTasks = pendingTimeouts.values
+        pendingTimeouts.removeAll()
+        for task in timeoutTasks {
+            task.cancel()
+        }
         for (_, cont) in items {
             cont.resume(throwing: error)
         }
