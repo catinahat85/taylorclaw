@@ -88,14 +88,16 @@ actor MCPClient {
                     "version": .string(clientVersion),
                 ]),
             ])
-            let initRaw = try await sendRequest("initialize", params: initParams, timeout: 30)
+            // Server startup can legitimately take time on first run while Python
+            // imports heavy deps / initializes local state.
+            let initRaw = try await sendRequest("initialize", params: initParams, timeout: 180)
             if let initResult = decode(MCPInitializeResult.self, from: initRaw) {
                 self.serverInfo = initResult.serverInfo
             }
 
             try await sendNotification("notifications/initialized", params: nil)
 
-            let listRaw = try await sendRequest("tools/list", params: .object([:]), timeout: 30)
+            let listRaw = try await sendRequest("tools/list", params: .object([:]), timeout: 60)
             if let listResult = decode(MCPToolListResult.self, from: listRaw) {
                 self.tools = listResult.tools
             }

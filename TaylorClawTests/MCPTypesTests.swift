@@ -57,10 +57,10 @@ final class MCPTypesTests: XCTestCase {
         XCTAssertEqual(resp.error?.message, "Method not found")
     }
 
-    func testJSONRPCResponseDecodesStringID() throws {
-        let raw = #"{"jsonrpc":"2.0","id":"abc-123","result":{}}"#
+    func testJSONRPCResponseDecodesNumericStringID() throws {
+        let raw = #"{"jsonrpc":"2.0","id":"123","result":{}}"#
         let resp = try JSONDecoder().decode(JSONRPCResponse.self, from: Data(raw.utf8))
-        XCTAssertEqual(resp.id, .string("abc-123"))
+        XCTAssertEqual(resp.id, 123)
     }
 
     // MARK: - MCP tool shape
