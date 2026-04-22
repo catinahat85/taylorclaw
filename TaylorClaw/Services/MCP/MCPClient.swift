@@ -28,8 +28,8 @@ actor MCPClient {
     private(set) var serverInfo: MCPServerInfo?
 
     private var nextID: Int64 = 1
-    private var pending: [Int64: CheckedContinuation<JSONValue, any Error>] = [:]
-    private var pendingTimeouts: [Int64: Task<Void, Never>] = [:]
+    private var pending: [JSONRPCID: CheckedContinuation<JSONValue, any Error>] = [:]
+    private var pendingTimeouts: [JSONRPCID: Task<Void, Never>] = [:]
     private var readerTask: Task<Void, Never>?
     private var exitWatcher: Task<Void, Never>?
 
@@ -185,15 +185,11 @@ actor MCPClient {
         }
     }
 
-    private func failPending(id: Int64, error: any Error) {
+    private func failPending(id: JSONRPCID, error: any Error) {
         pendingTimeouts.removeValue(forKey: id)?.cancel()
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: error)
         }
-    }
-
-    private func failPending(id: Int64, error: any Error) {
-        failPending(id: .int(id), error: error)
     }
 
     private func sendNotification(_ method: String, params: JSONValue?) async throws {
@@ -203,15 +199,11 @@ actor MCPClient {
         try await transport.send(data)
     }
 
-    private func cancelPending(id: Int64) {
+    private func cancelPending(id: JSONRPCID) {
         pendingTimeouts.removeValue(forKey: id)?.cancel()
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: CancellationError())
         }
-    }
-
-    private func cancelPending(id: Int64) {
-        cancelPending(id: .int(id))
     }
 
     // MARK: - Reader / teardown
