@@ -234,10 +234,18 @@ final class AgentSession {
             name: "mempalace",
             command: RuntimeConstants.venvPython.path,
             args: [
+                // -u forces unbuffered stdout/stderr. Without this Python
+                // block-buffers stdout when not connected to a TTY, so the
+                // MCP JSON-RPC initialize response gets stuck in the buffer
+                // and the handshake hangs forever.
+                "-u",
                 "-m", "mempalace.mcp_server",
                 "--data-dir", RuntimeConstants.mempalaceDir.path,
             ],
-            env: ["MEM_PALACE_DATA_DIR": RuntimeConstants.mempalaceDir.path],
+            env: [
+                "MEM_PALACE_DATA_DIR": RuntimeConstants.mempalaceDir.path,
+                "PYTHONUNBUFFERED": "1",
+            ],
             autoStart: true
         )
         let c = MCPClient(config: config)
