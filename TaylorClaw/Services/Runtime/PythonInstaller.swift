@@ -150,13 +150,31 @@ actor PythonInstaller {
                         emit: emit)
         emit(.log("Packages installed."))
 
-        // 8. Initialise data dir
+        // 8. Pre-download the FastEmbed ONNX model so MemPalace startup is
+        //    instant. Without this, the model downloads on first access and
+        //    the MCP handshake times out from the app's perspective.
+        appendLog("phase: downloadingEmbedModel\n")
+        emit(.phase(.downloadingEmbedModel))
+        emit(.log("Pre-warming FastEmbed embedding model (first-run download ~80 MB)…"))
+        let warmupScript = """
+import sys
+try:
+    from fastembed import TextEmbedding
+    _ = list(TextEmbedding().embed(['warmup']))
+    print('FastEmbed model ready')
+except Exception as e:
+    print(f'FastEmbed warmup skipped: {e}', file=sys.stderr)
+"""
+        _ = try? await shell(RuntimeConstants.venvPython.path, "-c", warmupScript, emit: emit)
+        emit(.log("Embedding model ready."))
+
+        // 9. Initialise data dir
         emit(.phase(.initializing))
         try fm.createDirectory(at: RuntimeConstants.mempalaceDir,
                                withIntermediateDirectories: true)
         emit(.log("MemPalace data dir: \(RuntimeConstants.mempalaceDir.path)"))
 
-        // 9. Smoke test
+        // 10. Smoke test
         emit(.phase(.smokeTesting))
         emit(.log("Running smoke test…"))
         let result = try await shell(RuntimeConstants.venvPython.path,
