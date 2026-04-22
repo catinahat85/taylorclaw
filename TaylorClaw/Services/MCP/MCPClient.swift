@@ -113,13 +113,13 @@ actor MCPClient {
             state = .ready
         } catch {
             state = .failed("\(error)")
-            await teardown()
+            await teardown(reason: "startup failure: \(error)")
             throw error
         }
     }
 
     func stop() async {
-        await teardown()
+        await teardown(reason: "client stop requested")
         state = .stopped
     }
 
@@ -273,14 +273,14 @@ actor MCPClient {
         }
     }
 
-    private func teardown() async {
+    private func teardown(reason: String) async {
         readerTask?.cancel()
         readerTask = nil
         exitWatcher?.cancel()
         exitWatcher = nil
         await transport?.close()
         transport = nil
-        await manager.terminate()
+        await manager.terminate(reason: reason)
         failAllPending(with: MCPError.transportClosed)
     }
 

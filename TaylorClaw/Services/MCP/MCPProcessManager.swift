@@ -90,7 +90,7 @@ actor MCPProcessManager {
     }
 
     /// Terminate the subprocess (SIGTERM), waiting up to `timeout` seconds.
-    func terminate(timeout: TimeInterval = 3.0) async {
+    func terminate(timeout: TimeInterval = 3.0, reason: String = "unspecified") async {
         guard let box = processBox else { return }
         let proc = box.value
         guard proc.isRunning else {
@@ -98,7 +98,7 @@ actor MCPProcessManager {
             return
         }
 
-        appendLog("Terminating pid=\(proc.processIdentifier)")
+        appendLog("Terminating pid=\(proc.processIdentifier) reason=\(reason)")
         proc.terminate()
 
         let deadline = Date().addingTimeInterval(timeout)
