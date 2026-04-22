@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Read-only snapshot of app state — paths, key presence, MemPalace status,
@@ -66,17 +67,15 @@ struct DiagnosticsSettingsView: View {
             row("MemPalace log", viewModel.snapshot.mempalaceLogPath, monospaced: true)
             row("App Support", viewModel.snapshot.appSupportPath, monospaced: true)
             if !viewModel.snapshot.mempalaceStderr.isEmpty {
-                row(
-                    "Live stderr",
-                    viewModel.snapshot.mempalaceStderr.joined(separator: "\n"),
-                    monospaced: true
+                logBlock(
+                    title: "Live stderr",
+                    text: viewModel.snapshot.mempalaceStderr.joined(separator: "\n")
                 )
             }
             if !viewModel.snapshot.mempalaceLogTail.isEmpty {
-                row(
-                    "Log tail",
-                    viewModel.snapshot.mempalaceLogTail.joined(separator: "\n"),
-                    monospaced: true
+                logBlock(
+                    title: "Log tail",
+                    text: viewModel.snapshot.mempalaceLogTail.joined(separator: "\n")
                 )
             }
         }
@@ -179,6 +178,36 @@ struct DiagnosticsSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(ok ? .green : .secondary)
             Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private func logBlock(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+            }
+            ScrollView {
+                Text(text)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(minHeight: 90, maxHeight: 180)
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color(nsColor: .textBackgroundColor))
+            )
         }
     }
 
