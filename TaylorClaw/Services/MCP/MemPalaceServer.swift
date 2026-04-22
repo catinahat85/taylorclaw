@@ -6,6 +6,7 @@ actor MemPalaceServer {
     static let shared = MemPalaceServer()
 
     private var client: MCPClient?
+    private var startTask: Task<MCPClient, any Error>?
 
     var isRunning: Bool { client != nil }
 
@@ -27,17 +28,42 @@ actor MemPalaceServer {
 
     // MARK: - Lifecycle
 
+    /// Idempotent. Concurrent callers coalesce onto a single in-flight launch
+    /// task — without this, each caller's `await c.start()` suspends before
+    /// `self.client` is assigned, so every guard passes and we spawn a fresh
+    /// Python subprocess per caller. Two subprocesses against the same palace
+    /// directory deadlock on ChromaDB's file lock and the handshake never
+    /// completes.
     func start() async throws {
-        guard client == nil else { return }
+        if client != nil { return }
+        if let existing = startTask {
+            let c = try await existing.value
+            if self.client == nil { self.client = c }
+            return
+        }
         guard FileManager.default.fileExists(atPath: RuntimeConstants.venvPython.path) else {
             throw RuntimeError.notInstalled
         }
-        let c = MCPClient(config: config)
-        try await c.start()
-        self.client = c
+        let cfg = config
+        let task = Task<MCPClient, any Error> {
+            let c = MCPClient(config: cfg)
+            try await c.start()
+            return c
+        }
+        startTask = task
+        do {
+            let c = try await task.value
+            self.client = c
+            self.startTask = nil
+        } catch {
+            self.startTask = nil
+            throw error
+        }
     }
 
     func stop() async {
+        startTask?.cancel()
+        startTask = nil
         guard let c = client else { return }
         await c.stop()
         self.client = nil
