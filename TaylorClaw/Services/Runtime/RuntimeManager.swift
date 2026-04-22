@@ -21,6 +21,7 @@ enum InstallPhase: Sendable, Equatable {
     case creatingVenv
     case upgradingPip
     case installingPackages
+    case downloadingEmbedModel
     case initializing
     case smokeTesting
 
@@ -34,6 +35,7 @@ enum InstallPhase: Sendable, Equatable {
         case .creatingVenv:         return "Creating virtual environment…"
         case .upgradingPip:         return "Upgrading pip…"
         case .installingPackages:   return "Installing MemPalace and dependencies…"
+        case .downloadingEmbedModel: return "Downloading embedding model (~80 MB)…"
         case .initializing:         return "Initialising data directory…"
         case .smokeTesting:         return "Running smoke test…"
         }
@@ -49,6 +51,7 @@ enum InstallPhase: Sendable, Equatable {
         case .creatingVenv:         return 0.68
         case .upgradingPip:         return 0.72
         case .installingPackages:   return 0.80
+        case .downloadingEmbedModel: return 0.88
         case .initializing:         return 0.94
         case .smokeTesting:         return 0.97
         }
