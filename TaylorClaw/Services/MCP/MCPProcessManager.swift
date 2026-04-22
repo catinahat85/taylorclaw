@@ -14,6 +14,8 @@ actor MCPProcessManager {
     private(set) var stderrLines: [String] = []
     private let maxStderrLines = 200
     private var stderrTask: Task<Void, Never>?
+    private lazy var logURL: URL = RuntimeConstants.appSupport
+        .appendingPathComponent("mcp-\(config.name).log")
 
     init(config: MCPServerConfig) {
         self.config = config
@@ -30,6 +32,7 @@ actor MCPProcessManager {
         guard processBox == nil else {
             throw MCPError.alreadyRunning
         }
+        appendLog("Launching \(config.name) command=\(config.command) args=\(config.args.joined(separator: " "))")
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: config.command)
@@ -72,9 +75,11 @@ actor MCPProcessManager {
         do {
             try proc.run()
         } catch {
+            appendLog("Launch failed: \(error.localizedDescription)")
             throw MCPError.launchFailed(error.localizedDescription)
         }
 
+        appendLog("Process started pid=\(proc.processIdentifier)")
         processBox = Unsafe(value: proc)
         startStderrCapture(handle: stderrPipe.fileHandleForReading)
 
@@ -93,6 +98,7 @@ actor MCPProcessManager {
             return
         }
 
+        appendLog("Terminating pid=\(proc.processIdentifier)")
         proc.terminate()
 
         let deadline = Date().addingTimeInterval(timeout)
@@ -101,6 +107,7 @@ actor MCPProcessManager {
         }
         if proc.isRunning {
             // Hard kill if it didn't exit politely.
+            appendLog("Terminate timeout exceeded, sending SIGKILL pid=\(proc.processIdentifier)")
             kill(proc.processIdentifier, SIGKILL)
         }
         processBox = nil
@@ -121,6 +128,7 @@ actor MCPProcessManager {
     // MARK: - Private
 
     private func handleTermination(status: Int32) {
+        appendLog("Process exited status=\(status)")
         processBox = nil
         stderrTask?.cancel()
         stderrTask = nil
@@ -157,6 +165,27 @@ actor MCPProcessManager {
         stderrLines.append(line)
         if stderrLines.count > maxStderrLines {
             stderrLines.removeFirst(stderrLines.count - maxStderrLines)
+        }
+        appendLog("[stderr] \(line)")
+    }
+
+    private func appendLog(_ line: String) {
+        let ts = ISO8601DateFormatter().string(from: Date())
+        let msg = "\(ts) \(line)\n"
+        let data = Data(msg.utf8)
+        let fm = FileManager.default
+        do {
+            try fm.createDirectory(at: RuntimeConstants.appSupport, withIntermediateDirectories: true)
+            if fm.fileExists(atPath: logURL.path) {
+                let handle = try FileHandle(forWritingTo: logURL)
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+            } else {
+                try data.write(to: logURL, options: .atomic)
+            }
+        } catch {
+            // Logging must never break MCP process management.
         }
     }
 }
