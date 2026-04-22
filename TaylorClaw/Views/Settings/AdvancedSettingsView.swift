@@ -97,6 +97,21 @@ struct AdvancedSettingsView: View {
                     }
                 }
             }
+
+            LabeledContent("Runtime Trace") {
+                HStack(spacing: 12) {
+                    Text("mcp-mempalace.log")
+                        .foregroundStyle(.secondary)
+                    Button("Open Log File") {
+                        openMemPalaceLog()
+                    }
+                    .buttonStyle(.link)
+                    Button("Open Folder") {
+                        NSWorkspace.shared.open(RuntimeConstants.appSupport)
+                    }
+                    .buttonStyle(.link)
+                }
+            }
         }
     }
 
@@ -157,5 +172,14 @@ struct AdvancedSettingsView: View {
 
     private func openLog() {
         NSWorkspace.shared.open(RuntimeConstants.installLogURL)
+    }
+
+    private func openMemPalaceLog() {
+        let logURL = RuntimeConstants.appSupport.appendingPathComponent("mcp-mempalace.log")
+        if FileManager.default.fileExists(atPath: logURL.path) {
+            NSWorkspace.shared.open(logURL)
+        } else {
+            NSWorkspace.shared.open(RuntimeConstants.appSupport)
+        }
     }
 }

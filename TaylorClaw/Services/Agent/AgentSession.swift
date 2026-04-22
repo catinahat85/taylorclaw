@@ -235,15 +235,7 @@ final class AgentSession {
         // palace directory deadlocks on the ChromaDB lock held by the first
         // process, so the handshake never completes.
         do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask { try await MemPalaceServer.shared.start() }
-                group.addTask {
-                    try await Task.sleep(for: .seconds(180))
-                    throw MCPError.timeout
-                }
-                _ = try await group.next()
-                group.cancelAll()
-            }
+            try await MemPalaceServer.shared.start()
             guard let c = await MemPalaceServer.shared.mcpClient() else {
                 throw MCPError.notInitialized
             }
@@ -272,7 +264,8 @@ final class AgentSession {
             case .notInitialized:    return "MCP client not initialized"
             case .alreadyRunning:    return "MCP client already running"
             case .transportClosed:   return "MCP transport closed"
-            case .timeout:           return "Timed out waiting for MemPalace handshake"
+            case .timeout:
+                return "Timed out waiting for MemPalace handshake"
             case .rpcError(let c, let msg):    return "RPC error \(c): \(msg)"
             case .decodingError(let d):         return "Decoding error: \(d)"
             case .processExited(let s):         return "Python subprocess exited with status \(s)"
