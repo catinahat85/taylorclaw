@@ -90,6 +90,9 @@ final class ChatViewModel {
         streamingTask = Task { [weak self] in
             guard let self else { return }
             do {
+                if currentMode == .agent {
+                    try await memPalace.start()
+                }
                 let memory = await memPalace.memoryRetriever()
                 let documents = await memPalace.documentRetriever()
                 let tools = currentMode == .agent ? await memPalace.listTools() : []
