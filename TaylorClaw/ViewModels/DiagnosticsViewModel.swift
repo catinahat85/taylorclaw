@@ -22,6 +22,7 @@ final class DiagnosticsViewModel {
         var conversationsPath: String = ""
         var documentsPath: String = ""
         var auditLogPath: String = ""
+        var mempalaceLogPath: String = ""
         var runtimeInstalled: Bool = false
         var venvPythonPath: String = ""
         var mempalaceRunning: Bool = false
@@ -31,6 +32,7 @@ final class DiagnosticsViewModel {
         var conversationCount: Int = 0
         var documentCount: Int = 0
         var recentAudit: [AuditEntry] = []
+        var mempalaceStderr: [String] = []
         var defaultModel: String = ""
         var defaultChatMode: String = ""
         var lastError: String?
@@ -80,6 +82,8 @@ final class DiagnosticsViewModel {
         snap.documentsPath = RuntimeConstants.appSupport
             .appendingPathComponent("documents.json").path
         snap.auditLogPath = AuditLog.defaultURL().path
+        snap.mempalaceLogPath = RuntimeConstants.appSupport
+            .appendingPathComponent("mcp-mempalace.log").path
         snap.venvPythonPath = RuntimeConstants.venvPython.path
         snap.runtimeInstalled = FileManager.default.fileExists(atPath: snap.venvPythonPath)
 
@@ -87,6 +91,12 @@ final class DiagnosticsViewModel {
         let tools = await memPalace.listTools()
         snap.toolCount = tools.count
         snap.toolNames = tools.map(\.name).sorted()
+        if let client = await memPalace.mcpClient() {
+            let stderr = await client.stderrSnapshot()
+            snap.mempalaceStderr = Array(stderr.suffix(25))
+        } else {
+            snap.mempalaceStderr = []
+        }
 
         var keys: [KeyStatus] = []
         for provider in ProviderID.allCases {
@@ -145,6 +155,7 @@ final class DiagnosticsViewModel {
         lines.append("conversations: \(s.conversationsPath)")
         lines.append("documents: \(s.documentsPath)")
         lines.append("audit: \(s.auditLogPath)")
+        lines.append("mempalaceLog: \(s.mempalaceLogPath)")
         lines.append("venvPython: \(s.venvPythonPath)")
         lines.append("")
         lines.append("## Runtime")
@@ -153,6 +164,12 @@ final class DiagnosticsViewModel {
         lines.append("toolCount: \(s.toolCount)")
         if !s.toolNames.isEmpty {
             lines.append("tools: \(s.toolNames.joined(separator: ", "))")
+        }
+        if !s.mempalaceStderr.isEmpty {
+            lines.append("recentStderr:")
+            for line in s.mempalaceStderr {
+                lines.append("  \(line)")
+            }
         }
         lines.append("")
         lines.append("## API Keys")
