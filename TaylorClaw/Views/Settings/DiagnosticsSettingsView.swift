@@ -63,7 +63,22 @@ struct DiagnosticsSettingsView: View {
                     monospaced: true)
             }
             row("venv python", viewModel.snapshot.venvPythonPath, monospaced: true)
+            row("MemPalace log", viewModel.snapshot.mempalaceLogPath, monospaced: true)
             row("App Support", viewModel.snapshot.appSupportPath, monospaced: true)
+            if !viewModel.snapshot.mempalaceStderr.isEmpty {
+                row(
+                    "Live stderr",
+                    viewModel.snapshot.mempalaceStderr.joined(separator: "\n"),
+                    monospaced: true
+                )
+            }
+            if !viewModel.snapshot.mempalaceLogTail.isEmpty {
+                row(
+                    "Log tail",
+                    viewModel.snapshot.mempalaceLogTail.joined(separator: "\n"),
+                    monospaced: true
+                )
+            }
         }
     }
 
