@@ -6,6 +6,7 @@ actor MemPalaceServer {
     static let shared = MemPalaceServer()
 
     private var client: MCPClient?
+    private var pendingClient: MCPClient?
     private var startTask: Task<MCPClient, any Error>?
 
     var isRunning: Bool { client != nil }
@@ -45,17 +46,20 @@ actor MemPalaceServer {
             throw RuntimeError.notInstalled
         }
         let cfg = config
+        let c = MCPClient(config: cfg)
+        self.pendingClient = c
         let task = Task<MCPClient, any Error> {
-            let c = MCPClient(config: cfg)
             try await c.start()
             return c
         }
         startTask = task
         do {
-            let c = try await task.value
-            self.client = c
+            let ready = try await task.value
+            self.client = ready
+            self.pendingClient = nil
             self.startTask = nil
         } catch {
+            self.pendingClient = nil
             self.startTask = nil
             throw error
         }
@@ -64,15 +68,20 @@ actor MemPalaceServer {
     func stop() async {
         startTask?.cancel()
         startTask = nil
+        if let c = pendingClient {
+            await c.stop()
+            pendingClient = nil
+        }
         guard let c = client else { return }
         await c.stop()
         self.client = nil
     }
 
     /// Expose the underlying MCP client so `AgentSession` can reuse this
-    /// single Python subprocess for its agent tool-call loop. Returns nil
-    /// before `start()` has completed.
-    func mcpClient() -> MCPClient? { client }
+    /// single Python subprocess for its agent tool-call loop. Returns the
+    /// ready client when start has completed, or the in-flight client during
+    /// startup (useful for reading stderr while the handshake is pending).
+    func mcpClient() -> MCPClient? { client ?? pendingClient }
 
     // MARK: - Tool access
 
