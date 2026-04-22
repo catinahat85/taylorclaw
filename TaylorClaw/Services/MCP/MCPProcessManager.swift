@@ -23,6 +23,8 @@ actor MCPProcessManager {
         processBox?.value.isRunning == true
     }
 
+    func currentStderr() -> [String] { stderrLines }
+
     /// Launch the subprocess and return a transport wired to its stdio.
     func launch() throws -> MCPTransport {
         guard processBox == nil else {
