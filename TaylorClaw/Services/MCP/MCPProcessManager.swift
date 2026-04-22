@@ -35,7 +35,18 @@ actor MCPProcessManager {
         proc.executableURL = URL(fileURLWithPath: config.command)
         proc.arguments = config.args
 
+        // Start from the app's environment but strip variables that confuse
+        // a bundled Python venv. Xcode's debug env sets PYTHONPATH/PYTHONHOME
+        // and often VIRTUAL_ENV pointing at unrelated interpreters — these
+        // cause our venv Python to import from the wrong place and hang or
+        // crash silently during MCP startup.
         var env = ProcessInfo.processInfo.environment
+        for key in [
+            "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV",
+            "PYTHONSTARTUP", "PYTHONEXECUTABLE", "PYTHONNOUSERSITE",
+        ] {
+            env.removeValue(forKey: key)
+        }
         for (k, v) in config.env { env[k] = v }
         proc.environment = env
 
