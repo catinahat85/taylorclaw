@@ -32,9 +32,6 @@ struct TaylorClawApp: App {
                 if !runtimeManager.isInstalled && !preferences.hasSkippedRuntimeInstall {
                     showRuntimeSheet = true
                 }
-                if runtimeManager.isInstalled {
-                    try? await MemPalaceServer.shared.start()
-                }
             }
         }
         .defaultSize(width: 900, height: 700)

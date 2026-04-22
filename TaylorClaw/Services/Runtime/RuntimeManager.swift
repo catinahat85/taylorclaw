@@ -193,6 +193,10 @@ final class RuntimeManager {
             state = .notInstalled
             return
         }
+        guard FileManager.default.fileExists(atPath: RuntimeConstants.venvPython.path) else {
+            state = .notInstalled
+            return
+        }
         state = .installed(m)
     }
 
