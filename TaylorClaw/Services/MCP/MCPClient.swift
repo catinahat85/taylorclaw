@@ -28,8 +28,8 @@ actor MCPClient {
     private(set) var serverInfo: MCPServerInfo?
 
     private var nextID: Int64 = 1
-    private var pending: [JSONRPCID: CheckedContinuation<JSONValue, any Error>] = [:]
-    private var pendingTimeouts: [JSONRPCID: Task<Void, Never>] = [:]
+    private var pending: [Int64: CheckedContinuation<JSONValue, any Error>] = [:]
+    private var pendingTimeouts: [Int64: Task<Void, Never>] = [:]
     private var readerTask: Task<Void, Never>?
     private var exitWatcher: Task<Void, Never>?
 
@@ -88,16 +88,14 @@ actor MCPClient {
                     "version": .string(clientVersion),
                 ]),
             ])
-            // Server startup can legitimately take time on first run while Python
-            // imports heavy deps / initializes local state.
-            let initRaw = try await sendRequest("initialize", params: initParams, timeout: 180)
+            let initRaw = try await sendRequest("initialize", params: initParams, timeout: 30)
             if let initResult = decode(MCPInitializeResult.self, from: initRaw) {
                 self.serverInfo = initResult.serverInfo
             }
 
             try await sendNotification("notifications/initialized", params: nil)
 
-            let listRaw = try await sendRequest("tools/list", params: .object([:]), timeout: 60)
+            let listRaw = try await sendRequest("tools/list", params: .object([:]), timeout: 30)
             if let listResult = decode(MCPToolListResult.self, from: listRaw) {
                 self.tools = listResult.tools
             }
@@ -185,7 +183,7 @@ actor MCPClient {
         }
     }
 
-    private func failPending(id: JSONRPCID, error: any Error) {
+    private func failPending(id: Int64, error: any Error) {
         pendingTimeouts.removeValue(forKey: id)?.cancel()
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: error)
@@ -203,7 +201,7 @@ actor MCPClient {
         try await transport.send(data)
     }
 
-    private func cancelPending(id: JSONRPCID) {
+    private func cancelPending(id: Int64) {
         pendingTimeouts.removeValue(forKey: id)?.cancel()
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: CancellationError())
