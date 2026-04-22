@@ -63,7 +63,7 @@ actor MCPTransport {
         var payload = data
         payload.append(0x0A)
         try stdinBox.value.write(contentsOf: payload)
-        stdinBox.value.synchronizeFile()
+        try stdinBox.value.synchronizeFile()
     }
 
     /// Stop reading and close both pipe ends.
