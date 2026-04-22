@@ -69,8 +69,13 @@ actor MCPTransport {
     /// Write a single JSON message as NDJSON (`<json>\n`).
     func send(_ data: Data) throws {
         guard !isClosed else { throw MCPError.transportClosed }
-        var payload = data
-        payload.append(0x0A)
+        let header = """
+        Content-Length: \(data.count)\r
+        Content-Type: application/json\r
+        \r
+        """
+        var payload = Data(header.utf8)
+        payload.append(data)
         try stdinBox.value.write(contentsOf: payload)
     }
 
