@@ -152,7 +152,7 @@ actor MCPClient {
     ) async throws -> JSONValue {
         guard let transport = transport else { throw MCPError.transportClosed }
 
-        let id = nextID
+        let id: JSONRPCID = .int(nextID)
         nextID += 1
         let req = JSONRPCRequest(id: id, method: method, params: params)
         let data: Data
@@ -192,6 +192,10 @@ actor MCPClient {
         }
     }
 
+    private func failPending(id: Int64, error: any Error) {
+        failPending(id: .int(id), error: error)
+    }
+
     private func sendNotification(_ method: String, params: JSONValue?) async throws {
         guard let transport = transport else { throw MCPError.transportClosed }
         let req = JSONRPCRequest(id: nil, method: method, params: params)
@@ -204,6 +208,10 @@ actor MCPClient {
         if let cont = pending.removeValue(forKey: id) {
             cont.resume(throwing: CancellationError())
         }
+    }
+
+    private func cancelPending(id: Int64) {
+        cancelPending(id: .int(id))
     }
 
     // MARK: - Reader / teardown

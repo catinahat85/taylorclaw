@@ -54,11 +54,11 @@ extension JSONValue {
 
 struct JSONRPCRequest: Codable, Sendable {
     let jsonrpc: String
-    let id: Int64?
+    let id: JSONRPCID?
     let method: String
     let params: JSONValue?
 
-    init(id: Int64?, method: String, params: JSONValue?) {
+    init(id: JSONRPCID?, method: String, params: JSONValue?) {
         self.jsonrpc = JSONRPC.version
         self.id = id
         self.method = method
@@ -69,7 +69,7 @@ struct JSONRPCRequest: Codable, Sendable {
 
 struct JSONRPCResponse: Codable, Sendable {
     let jsonrpc: String
-    let id: Int64?
+    let id: JSONRPCID?
     let result: JSONValue?
     let error: JSONRPCError?
     init(from decoder: any Decoder) throws {
@@ -84,6 +84,33 @@ struct JSONRPCResponse: Codable, Sendable {
             self.id = parsed
         } else {
             self.id = nil
+        }
+    }
+}
+
+/// JSON-RPC request/response IDs may be numbers or strings.
+enum JSONRPCID: Hashable, Sendable, Codable {
+    case int(Int64)
+    case string(String)
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if let i = try? c.decode(Int64.self) {
+            self = .int(i)
+            return
+        }
+        if let s = try? c.decode(String.self) {
+            self = .string(s)
+            return
+        }
+        throw DecodingError.dataCorruptedError(in: c, debugDescription: "Invalid JSON-RPC id")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .int(let i): try c.encode(i)
+        case .string(let s): try c.encode(s)
         }
     }
 }

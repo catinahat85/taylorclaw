@@ -34,7 +34,7 @@ final class MCPTypesTests: XCTestCase {
 
     func testJSONRPCRequestEncodesExpectedShape() throws {
         let req = JSONRPCRequest(
-            id: 7,
+            id: .int(7),
             method: "tools/call",
             params: .object(["name": .string("echo")])
         )
@@ -51,7 +51,7 @@ final class MCPTypesTests: XCTestCase {
     func testJSONRPCResponseDecodesError() throws {
         let raw = #"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"#
         let resp = try JSONDecoder().decode(JSONRPCResponse.self, from: Data(raw.utf8))
-        XCTAssertEqual(resp.id, 1)
+        XCTAssertEqual(resp.id, .int(1))
         XCTAssertNil(resp.result)
         XCTAssertEqual(resp.error?.code, -32601)
         XCTAssertEqual(resp.error?.message, "Method not found")
