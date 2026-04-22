@@ -165,8 +165,13 @@ try:
 except Exception as e:
     print(f'FastEmbed warmup skipped: {e}', file=sys.stderr)
 """
-        _ = try? await shell(RuntimeConstants.venvPython.path, "-c", warmupScript, emit: emit)
-        emit(.log("Embedding model ready."))
+        do {
+            _ = try await shell(RuntimeConstants.venvPython.path, "-c", warmupScript, emit: emit)
+            emit(.log("Embedding model ready."))
+        } catch {
+            emit(.log("Warning: FastEmbed warmup failed (\(error)). MemPalace may be slow on first start."))
+            appendLog("FastEmbed warmup failed: \(error)\n")
+        }
 
         // 9. Initialise data dir
         emit(.phase(.initializing))
