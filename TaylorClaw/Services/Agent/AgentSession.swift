@@ -242,21 +242,53 @@ final class AgentSession {
         )
         let c = MCPClient(config: config)
         do {
-            try await c.start()
+            // Race the MCP handshake against a generous timeout. First-run
+            // MemPalace startup can download a FastEmbed ONNX model from
+            // HuggingFace (~80 MB), so we allow several minutes, but fail
+            // loudly rather than hang the UI forever.
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask { try await c.start() }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(180))
+                    throw MCPError.timeout
+                }
+                _ = try await group.next()
+                group.cancelAll()
+            }
             let listed = await c.listTools()
             self.client = c
             self.tools = listed
             self.status = .ready
         } catch {
+            let stderr = await c.stderrSnapshot().suffix(8).joined(separator: "\n")
             await c.stop()
             self.client = nil
             self.tools = []
-            self.status = .failed(error.localizedDescription)
+            let base = describe(error)
+            let msg = stderr.isEmpty ? base : "\(base)\n\(stderr)"
+            self.status = .failed(msg)
         }
 
         // MemPalace result doesn't gate user-server startup — users may want
         // those even when MemPalace failed to launch (e.g. runtime missing).
         await reconcileUserServers()
+    }
+
+    private func describe(_ error: any Error) -> String {
+        if let m = error as? MCPError {
+            switch m {
+            case .notInitialized:    return "MCP client not initialized"
+            case .alreadyRunning:    return "MCP client already running"
+            case .transportClosed:   return "MCP transport closed"
+            case .timeout:           return "Timed out waiting for MemPalace handshake (180s)"
+            case .rpcError(let c, let msg):    return "RPC error \(c): \(msg)"
+            case .decodingError(let d):         return "Decoding error: \(d)"
+            case .processExited(let s):         return "Python subprocess exited with status \(s)"
+            case .tooManyRestarts(let n):       return "Too many restarts (\(n))"
+            case .launchFailed(let d):          return "Launch failed: \(d)"
+            }
+        }
+        return String(describing: error)
     }
 
     private func stopAllUserServers() async {

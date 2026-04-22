@@ -111,6 +111,13 @@ actor MCPClient {
         state = .stopped
     }
 
+    /// Snapshot of recent subprocess stderr lines — useful for surfacing
+    /// Python tracebacks or model-download progress when startup fails or
+    /// times out.
+    func stderrSnapshot() async -> [String] {
+        await manager.currentStderr()
+    }
+
     // MARK: - Tool API
 
     func listTools() -> [MCPTool] { tools }
