@@ -77,14 +77,7 @@ struct JSONRPCResponse: Codable, Sendable {
         self.jsonrpc = try c.decode(String.self, forKey: .jsonrpc)
         self.result = try c.decodeIfPresent(JSONValue.self, forKey: .result)
         self.error = try c.decodeIfPresent(JSONRPCError.self, forKey: .error)
-        if let intID = try c.decodeIfPresent(Int64.self, forKey: .id) {
-            self.id = intID
-        } else if let stringID = try c.decodeIfPresent(String.self, forKey: .id),
-                  let parsed = Int64(stringID) {
-            self.id = parsed
-        } else {
-            self.id = nil
-        }
+        self.id = try c.decodeIfPresent(JSONRPCID.self, forKey: .id)
     }
 }
 
