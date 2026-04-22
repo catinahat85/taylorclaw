@@ -99,9 +99,9 @@ final class AgentSession {
     func stop() async {
         startTask?.cancel()
         startTask = nil
-        if let c = client {
-            await c.stop()
-        }
+        // The MemPalace client is owned by `MemPalaceServer.shared` — don't
+        // stop it here, other view models (chat, documents, diagnostics) still
+        // depend on it. Just release our reference.
         client = nil
         tools = []
         status = .stopped
@@ -230,31 +230,13 @@ final class AgentSession {
     // MARK: - Private
 
     private func performStart() async {
-        let config = MCPServerConfig(
-            name: "mempalace",
-            command: RuntimeConstants.venvPython.path,
-            args: [
-                // -u forces unbuffered stdout/stderr. Without this Python
-                // block-buffers stdout when not connected to a TTY, so the
-                // MCP JSON-RPC initialize response gets stuck in the buffer
-                // and the handshake hangs forever.
-                "-u",
-                "-m", "mempalace.mcp_server",
-                "--palace", RuntimeConstants.mempalaceDir.path,
-            ],
-            env: [
-                "PYTHONUNBUFFERED": "1",
-            ],
-            autoStart: true
-        )
-        let c = MCPClient(config: config)
+        // Share the one MemPalace subprocess owned by `MemPalaceServer.shared`.
+        // Launching a second `python -m mempalace.mcp_server` against the same
+        // palace directory deadlocks on the ChromaDB lock held by the first
+        // process, so the handshake never completes.
         do {
-            // Race the MCP handshake against a generous timeout. First-run
-            // MemPalace startup can download a FastEmbed ONNX model from
-            // HuggingFace (~80 MB), so we allow several minutes, but fail
-            // loudly rather than hang the UI forever.
             try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask { try await c.start() }
+                group.addTask { try await MemPalaceServer.shared.start() }
                 group.addTask {
                     try await Task.sleep(for: .seconds(180))
                     throw MCPError.timeout
@@ -262,13 +244,16 @@ final class AgentSession {
                 _ = try await group.next()
                 group.cancelAll()
             }
+            guard let c = await MemPalaceServer.shared.mcpClient() else {
+                throw MCPError.notInitialized
+            }
             let listed = await c.listTools()
             self.client = c
             self.tools = listed
             self.status = .ready
         } catch {
-            let stderr = await c.stderrSnapshot().suffix(8).joined(separator: "\n")
-            await c.stop()
+            let stderr = await (MemPalaceServer.shared.mcpClient()?.stderrSnapshot() ?? [])
+                .suffix(8).joined(separator: "\n")
             self.client = nil
             self.tools = []
             let base = describe(error)

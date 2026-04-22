@@ -43,6 +43,11 @@ actor MemPalaceServer {
         self.client = nil
     }
 
+    /// Expose the underlying MCP client so `AgentSession` can reuse this
+    /// single Python subprocess for its agent tool-call loop. Returns nil
+    /// before `start()` has completed.
+    func mcpClient() -> MCPClient? { client }
+
     // MARK: - Tool access
 
     func listTools() async -> [MCPTool] {
