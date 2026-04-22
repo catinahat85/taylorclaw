@@ -22,6 +22,7 @@ final class DiagnosticsViewModel {
         var conversationsPath: String = ""
         var documentsPath: String = ""
         var auditLogPath: String = ""
+        var mempalaceLogPath: String = ""
         var runtimeInstalled: Bool = false
         var venvPythonPath: String = ""
         var mempalaceRunning: Bool = false
@@ -31,6 +32,8 @@ final class DiagnosticsViewModel {
         var conversationCount: Int = 0
         var documentCount: Int = 0
         var recentAudit: [AuditEntry] = []
+        var mempalaceStderr: [String] = []
+        var mempalaceLogTail: [String] = []
         var defaultModel: String = ""
         var defaultChatMode: String = ""
         var lastError: String?
@@ -80,6 +83,8 @@ final class DiagnosticsViewModel {
         snap.documentsPath = RuntimeConstants.appSupport
             .appendingPathComponent("documents.json").path
         snap.auditLogPath = AuditLog.defaultURL().path
+        snap.mempalaceLogPath = RuntimeConstants.appSupport
+            .appendingPathComponent("mcp-mempalace.log").path
         snap.venvPythonPath = RuntimeConstants.venvPython.path
         snap.runtimeInstalled = FileManager.default.fileExists(atPath: snap.venvPythonPath)
 
@@ -87,6 +92,13 @@ final class DiagnosticsViewModel {
         let tools = await memPalace.listTools()
         snap.toolCount = tools.count
         snap.toolNames = tools.map(\.name).sorted()
+        if let client = await memPalace.mcpClient() {
+            let stderr = await client.stderrSnapshot()
+            snap.mempalaceStderr = Array(stderr.suffix(25))
+        } else {
+            snap.mempalaceStderr = []
+        }
+        snap.mempalaceLogTail = Self.readLogTail(atPath: snap.mempalaceLogPath, lineLimit: 80)
 
         var keys: [KeyStatus] = []
         for provider in ProviderID.allCases {
@@ -145,6 +157,7 @@ final class DiagnosticsViewModel {
         lines.append("conversations: \(s.conversationsPath)")
         lines.append("documents: \(s.documentsPath)")
         lines.append("audit: \(s.auditLogPath)")
+        lines.append("mempalaceLog: \(s.mempalaceLogPath)")
         lines.append("venvPython: \(s.venvPythonPath)")
         lines.append("")
         lines.append("## Runtime")
@@ -153,6 +166,18 @@ final class DiagnosticsViewModel {
         lines.append("toolCount: \(s.toolCount)")
         if !s.toolNames.isEmpty {
             lines.append("tools: \(s.toolNames.joined(separator: ", "))")
+        }
+        if !s.mempalaceStderr.isEmpty {
+            lines.append("recentStderr:")
+            for line in s.mempalaceStderr {
+                lines.append("  \(line)")
+            }
+        }
+        if !s.mempalaceLogTail.isEmpty {
+            lines.append("recentMemPalaceLog:")
+            for line in s.mempalaceLogTail {
+                lines.append("  \(line)")
+            }
         }
         lines.append("")
         lines.append("## API Keys")
@@ -188,5 +213,16 @@ final class DiagnosticsViewModel {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
         return f.string(from: date)
+    }
+
+    private static func readLogTail(atPath path: String, lineLimit: Int) -> [String] {
+        guard lineLimit > 0,
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              var text = String(data: data, encoding: .utf8) else {
+            return []
+        }
+        text = text.replacingOccurrences(of: "\r\n", with: "\n")
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        return lines.suffix(lineLimit).map(String.init)
     }
 }
