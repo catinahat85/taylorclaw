@@ -12,6 +12,7 @@ import Observation
 @Observable
 final class AgentSession {
     static let shared = AgentSession()
+    private static let memPalaceStartupTimeoutSeconds: Double = 420
 
     enum Status: Sendable, Equatable {
         case stopped
