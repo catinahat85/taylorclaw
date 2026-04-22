@@ -90,12 +90,20 @@ final class ChatViewModel {
         streamingTask = Task { [weak self] in
             guard let self else { return }
             do {
+                var tools: [MCPTool] = []
+                var memory: any MemoryRetriever = NoMemoryRetriever()
+                var documents: any DocumentRetriever = NoDocumentRetriever()
+
                 if currentMode == .agent {
-                    try await memPalace.start()
+                    do {
+                        try await memPalace.start()
+                        memory = await memPalace.memoryRetriever()
+                        documents = await memPalace.documentRetriever()
+                        tools = await memPalace.listTools()
+                    } catch {
+                        self.errorMessage = "MemPalace unavailable (\(error.localizedDescription)). Continuing without tools."
+                    }
                 }
-                let memory = await memPalace.memoryRetriever()
-                let documents = await memPalace.documentRetriever()
-                let tools = currentMode == .agent ? await memPalace.listTools() : []
 
                 var assistantIdx = self.conversation.messages.count - 1
 

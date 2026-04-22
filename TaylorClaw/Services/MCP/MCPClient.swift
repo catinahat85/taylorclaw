@@ -36,6 +36,7 @@ actor MCPClient {
     private let clientVersion = "0.2.0"
     private let clientName = "taylorclaw"
     private let protocolVersion = "2024-11-05"
+    private let startupHandshakeTimeout: TimeInterval = 420
 
     init(config: MCPServerConfig) {
         self.config = config
@@ -90,27 +91,35 @@ actor MCPClient {
             ])
             // Server startup can legitimately take time on first run while Python
             // imports heavy deps / initializes local state.
-            let initRaw = try await sendRequest("initialize", params: initParams, timeout: 180)
+            let initRaw = try await sendRequest(
+                "initialize",
+                params: initParams,
+                timeout: startupHandshakeTimeout
+            )
             if let initResult = decode(MCPInitializeResult.self, from: initRaw) {
                 self.serverInfo = initResult.serverInfo
             }
 
             try await sendNotification("notifications/initialized", params: nil)
 
-            let listRaw = try await sendRequest("tools/list", params: .object([:]), timeout: 60)
+            let listRaw = try await sendRequest(
+                "tools/list",
+                params: .object([:]),
+                timeout: startupHandshakeTimeout
+            )
             if let listResult = decode(MCPToolListResult.self, from: listRaw) {
                 self.tools = listResult.tools
             }
             state = .ready
         } catch {
             state = .failed("\(error)")
-            await teardown()
+            await teardown(reason: "startup failure: \(error)")
             throw error
         }
     }
 
     func stop() async {
-        await teardown()
+        await teardown(reason: "client stop requested")
         state = .stopped
     }
 
@@ -264,14 +273,14 @@ actor MCPClient {
         }
     }
 
-    private func teardown() async {
+    private func teardown(reason: String) async {
         readerTask?.cancel()
         readerTask = nil
         exitWatcher?.cancel()
         exitWatcher = nil
         await transport?.close()
         transport = nil
-        await manager.terminate()
+        await manager.terminate(reason: reason)
         failAllPending(with: MCPError.transportClosed)
     }
 
