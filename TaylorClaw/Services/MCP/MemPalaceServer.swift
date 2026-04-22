@@ -16,10 +16,9 @@ actor MemPalaceServer {
             args: [
                 "-u",
                 "-m", "mempalace.mcp_server",
-                "--data-dir", RuntimeConstants.mempalaceDir.path,
+                "--palace", RuntimeConstants.mempalaceDir.path,
             ],
             env: [
-                "MEM_PALACE_DATA_DIR": RuntimeConstants.mempalaceDir.path,
                 "PYTHONUNBUFFERED": "1",
             ],
             autoStart: true
