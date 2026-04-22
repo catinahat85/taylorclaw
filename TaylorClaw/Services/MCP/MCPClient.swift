@@ -150,7 +150,7 @@ actor MCPClient {
     ) async throws -> JSONValue {
         guard let transport = transport else { throw MCPError.transportClosed }
 
-        let id = nextID
+        let id: JSONRPCID = .int(nextID)
         nextID += 1
         let req = JSONRPCRequest(id: id, method: method, params: params)
         let data: Data
