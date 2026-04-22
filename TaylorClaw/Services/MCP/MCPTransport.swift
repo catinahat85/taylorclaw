@@ -10,8 +10,8 @@ private struct Unsafe<T>: @unchecked Sendable { let value: T }
 ///   `Content-Length: <N>\r\n\r\n<JSON bytes>`
 /// Some legacy servers emit newline-delimited JSON.
 ///
-/// This transport accepts either framing on read, and writes the standard
-/// `Content-Length` framed payloads.
+/// This transport accepts either framing on read, and writes newline-delimited
+/// JSON payloads for compatibility with MemPalace's current stdio server.
 actor MCPTransport {
     private let stdinBox: Unsafe<FileHandle>
     private let stdoutBox: Unsafe<FileHandle>
@@ -66,7 +66,7 @@ actor MCPTransport {
         }
     }
 
-    /// Write a single JSON message using MCP's `Content-Length` framing.
+    /// Write a single JSON message as NDJSON (`<json>\n`).
     func send(_ data: Data) throws {
         guard !isClosed else { throw MCPError.transportClosed }
         let header = """
