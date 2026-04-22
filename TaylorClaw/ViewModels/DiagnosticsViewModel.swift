@@ -33,6 +33,7 @@ final class DiagnosticsViewModel {
         var documentCount: Int = 0
         var recentAudit: [AuditEntry] = []
         var mempalaceStderr: [String] = []
+        var mempalaceLogTail: [String] = []
         var defaultModel: String = ""
         var defaultChatMode: String = ""
         var lastError: String?
@@ -97,6 +98,7 @@ final class DiagnosticsViewModel {
         } else {
             snap.mempalaceStderr = []
         }
+        snap.mempalaceLogTail = Self.readLogTail(atPath: snap.mempalaceLogPath, lineLimit: 80)
 
         var keys: [KeyStatus] = []
         for provider in ProviderID.allCases {
@@ -171,6 +173,12 @@ final class DiagnosticsViewModel {
                 lines.append("  \(line)")
             }
         }
+        if !s.mempalaceLogTail.isEmpty {
+            lines.append("recentMemPalaceLog:")
+            for line in s.mempalaceLogTail {
+                lines.append("  \(line)")
+            }
+        }
         lines.append("")
         lines.append("## API Keys")
         for status in s.keyStatus {
@@ -205,5 +213,16 @@ final class DiagnosticsViewModel {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
         return f.string(from: date)
+    }
+
+    private static func readLogTail(atPath path: String, lineLimit: Int) -> [String] {
+        guard lineLimit > 0,
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              var text = String(data: data, encoding: .utf8) else {
+            return []
+        }
+        text = text.replacingOccurrences(of: "\r\n", with: "\n")
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        return lines.suffix(lineLimit).map(String.init)
     }
 }

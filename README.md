@@ -68,6 +68,19 @@ Ollama doesn't need a key — just make sure `ollama serve` is running locally. 
 - **API keys:** macOS Keychain, service `com.catinahat85.taylorclaw.apikeys`.
 - **Conversations:** `~/Library/Application Support/TaylorClaw/conversations.json`, written atomically on every message.
 - **Preferences:** standard `UserDefaults` (default model, appearance override, onboarding flag, OpenRouter model IDs).
+- **MemPalace runtime trace:** `~/Library/Application Support/TaylorClaw/mcp-mempalace.log` (append-only lifecycle + stderr lines from the MCP subprocess).
+
+### Debugging a MemPalace startup hang
+
+1. Open **Settings → Diagnostics** and click **Refresh**.
+2. In **Runtime & MemPalace**, copy:
+   - **MemPalace log** (the full on-disk path),
+   - **Log tail** (durable trace from the log file, including previous runs),
+   - **Live stderr** (current process stderr, if running).
+3. You can also inspect the file directly from Terminal:
+   ```bash
+   tail -n 200 ~/Library/Application\ Support/TaylorClaw/mcp-mempalace.log
+   ```
 
 ## Keyboard shortcuts
 
