@@ -2,8 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Sandbox temporarily disabled for development.
+         python-build-standalone ships an unsigned Python binary, and the
+         App Sandbox refuses to execute it even inside our own container —
+         Process.run() reports this as NSCocoaErrorDomain Code=4 "file
+         doesn't exist." Re-enable before shipping, either by bundling a
+         signed Python in Contents/Resources or adding a helper tool. -->
     <key>com.apple.security.app-sandbox</key>
-    <true/>
+    <false/>
     <key>com.apple.security.network.client</key>
     <true/>
     <key>com.apple.security.files.user-selected.read-write</key>
