@@ -147,6 +147,9 @@ actor MCPProcessManager {
                     buffer.removeSubrange(buffer.startIndex..<next)
                 }
             }
+            if !buffer.isEmpty, let trailing = String(data: buffer, encoding: .utf8) {
+                await self?.appendStderr(trailing)
+            }
         }
     }
 
