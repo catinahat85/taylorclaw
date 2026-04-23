@@ -68,7 +68,8 @@ actor MCPServerStore {
             args: existing.args,
             env: existing.env,
             cwd: existing.cwd,
-            autoStart: existing.autoStart
+            autoStart: existing.autoStart,
+            writeFraming: existing.writeFraming
         )
         try persist()
         return true
