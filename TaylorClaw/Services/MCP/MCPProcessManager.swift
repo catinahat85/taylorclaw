@@ -34,8 +34,16 @@ actor MCPProcessManager {
         }
         appendLog("Launching \(config.name) command=\(config.command) args=\(config.args.joined(separator: " "))")
 
+        let executable: String
+        do {
+            executable = try resolveExecutablePath(config.command)
+        } catch {
+            appendLog("Launch failed: \(error.localizedDescription)")
+            throw error
+        }
+
         let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: config.command)
+        proc.executableURL = URL(fileURLWithPath: executable)
         proc.arguments = config.args
 
         // Start from the app's environment but strip variables that confuse
@@ -51,6 +59,7 @@ actor MCPProcessManager {
             env.removeValue(forKey: key)
         }
         for (k, v) in config.env { env[k] = v }
+        env["PATH"] = enrichedPATH(from: env["PATH"])
         proc.environment = env
 
         if let cwd = config.cwd {
@@ -188,5 +197,48 @@ actor MCPProcessManager {
         } catch {
             // Logging must never break MCP process management.
         }
+    }
+
+    private func resolveExecutablePath(_ command: String) throws -> String {
+        let fm = FileManager.default
+        if command.contains("/") {
+            guard fm.isExecutableFile(atPath: command) else {
+                throw MCPError.launchFailed("Command '\(command)' is not executable")
+            }
+            return command
+        }
+
+        for dir in executableSearchPaths() {
+            let candidate = String(dir) + "/" + command
+            if fm.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+        throw MCPError.launchFailed("Command '\(command)' not found on PATH")
+    }
+
+    private func executableSearchPaths() -> [Substring] {
+        let base = enrichedPATH(from: ProcessInfo.processInfo.environment["PATH"])
+        return base.split(separator: ":")
+    }
+
+    private func enrichedPATH(from rawPATH: String?) -> String {
+        var ordered: [String] = []
+        var seen: Set<String> = []
+
+        func add(_ path: String) {
+            guard !path.isEmpty, !seen.contains(path) else { return }
+            seen.insert(path)
+            ordered.append(path)
+        }
+
+        (rawPATH ?? "").split(separator: ":").forEach { add(String($0)) }
+        add("/opt/homebrew/bin")
+        add("/usr/local/bin")
+        add("/usr/bin")
+        add("/bin")
+        add("/usr/sbin")
+        add("/sbin")
+        return ordered.joined(separator: ":")
     }
 }
