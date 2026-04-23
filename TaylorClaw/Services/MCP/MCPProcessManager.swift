@@ -26,6 +26,7 @@ actor MCPProcessManager {
     }
 
     func currentStderr() -> [String] { stderrLines }
+    func logEvent(_ line: String) { appendLog(line) }
 
     /// Launch the subprocess and return a transport wired to its stdio.
     func launch() throws -> MCPTransport {
