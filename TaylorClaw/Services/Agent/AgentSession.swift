@@ -195,6 +195,7 @@ final class AgentSession {
     func startUserServer(named name: String) async {
         guard let idx = userServers.firstIndex(where: { $0.id == name }) else { return }
         guard userClients[name] == nil else { return }
+        guard userServers[idx].state != .starting else { return }
         var cfg = userServers[idx].config
         // Brave's MCP server expects NDJSON stdin. Older saved configs may
         // still carry default `.contentLength` framing.
