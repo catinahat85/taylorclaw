@@ -23,7 +23,8 @@ actor MemPalaceServer {
             env: [
                 "PYTHONUNBUFFERED": "1",
             ],
-            autoStart: true
+            autoStart: true,
+            writeFraming: .ndjson
         )
     }
 

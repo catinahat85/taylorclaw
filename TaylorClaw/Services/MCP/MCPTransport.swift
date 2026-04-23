@@ -10,11 +10,17 @@ private struct Unsafe<T>: @unchecked Sendable { let value: T }
 ///   `Content-Length: <N>\r\n\r\n<JSON bytes>`
 /// Some legacy servers emit newline-delimited JSON.
 ///
-/// This transport accepts either framing on read, and writes newline-delimited
-/// JSON payloads for compatibility with MemPalace's current stdio server.
+/// This transport accepts either framing on read. Outbound framing is
+/// configurable per server (NDJSON or `Content-Length`).
 actor MCPTransport {
+    enum WriteFraming: Sendable {
+        case ndjson
+        case contentLength
+    }
+
     private let stdinBox: Unsafe<FileHandle>
     private let stdoutBox: Unsafe<FileHandle>
+    private let writeFraming: WriteFraming
     private var readTask: Task<Void, Never>?
     private var yielder: AsyncStream<Data>.Continuation?
     private var isClosed = false
@@ -22,9 +28,14 @@ actor MCPTransport {
     /// Complete JSON messages read from the child's stdout.
     let incoming: AsyncStream<Data>
 
-    init(stdin: FileHandle, stdout: FileHandle) {
+    init(
+        stdin: FileHandle,
+        stdout: FileHandle,
+        writeFraming: WriteFraming = .contentLength
+    ) {
         self.stdinBox = Unsafe(value: stdin)
         self.stdoutBox = Unsafe(value: stdout)
+        self.writeFraming = writeFraming
         var c: AsyncStream<Data>.Continuation!
         self.incoming = AsyncStream(bufferingPolicy: .unbounded) { c = $0 }
         self.yielder = c
@@ -66,16 +77,21 @@ actor MCPTransport {
         }
     }
 
-    /// Write a single JSON message as NDJSON (`<json>\n`).
+    /// Write a single JSON message using the configured framing mode.
     func send(_ data: Data) throws {
         guard !isClosed else { throw MCPError.transportClosed }
-        let header = """
-        Content-Length: \(data.count)\r
-        Content-Type: application/json\r
-        \r
-        """
-        var payload = Data(header.utf8)
-        payload.append(data)
+        let payload: Data
+        switch writeFraming {
+        case .ndjson:
+            var line = data
+            line.append(0x0A)
+            payload = line
+        case .contentLength:
+            let header = "Content-Length: \(data.count)\r\n\r\n"
+            var framed = Data(header.utf8)
+            framed.append(data)
+            payload = framed
+        }
         try stdinBox.value.write(contentsOf: payload)
     }
 
