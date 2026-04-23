@@ -64,6 +64,9 @@ actor MemPalaceServer {
             self.pendingClient = nil
             self.startTask = nil
         } catch {
+            if let pending = self.pendingClient {
+                await pending.stop()
+            }
             self.pendingClient = nil
             self.startTask = nil
             throw error
