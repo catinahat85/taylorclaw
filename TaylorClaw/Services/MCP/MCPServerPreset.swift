@@ -24,6 +24,8 @@ struct MCPServerPreset: Sendable, Hashable, Identifiable {
     /// Placeholder env vars the user is expected to fill in (API keys etc.).
     /// The value is a prompt shown next to the field in the add sheet.
     let requiredEnv: [(key: String, hint: String)]
+    /// Preferred outbound stdio framing for this server.
+    let writeFraming: MCPServerConfig.WriteFraming
 
     func makeConfig(
         name: String? = nil,
@@ -36,7 +38,8 @@ struct MCPServerPreset: Sendable, Hashable, Identifiable {
             args: args,
             env: env,
             cwd: nil,
-            autoStart: autoStart
+            autoStart: autoStart,
+            writeFraming: writeFraming
         )
     }
 
@@ -67,10 +70,11 @@ extension MCPServerPreset {
         requires: "Node (`npx`)",
         defaultName: "brave-search",
         command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-brave-search"],
+        args: ["-y", "@brave/brave-search-mcp-server", "--transport", "stdio"],
         requiredEnv: [
             ("BRAVE_API_KEY", "Brave Search API key (brave.com/search/api)"),
-        ]
+        ],
+        writeFraming: .ndjson
     )
 
     /// Reference `fetch` server — lets the agent retrieve arbitrary URLs.
@@ -82,7 +86,8 @@ extension MCPServerPreset {
         defaultName: "fetch",
         command: "uvx",
         args: ["mcp-server-fetch"],
-        requiredEnv: []
+        requiredEnv: [],
+        writeFraming: .contentLength
     )
 
     /// Reference filesystem server, scoped to a user-chosen directory.
@@ -95,6 +100,7 @@ extension MCPServerPreset {
         defaultName: "filesystem",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", "~/Documents"],
-        requiredEnv: []
+        requiredEnv: [],
+        writeFraming: .contentLength
     )
 }

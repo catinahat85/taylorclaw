@@ -55,21 +55,66 @@ final class MCPServerStoreTests: XCTestCase {
             args: ["mcp-server-fetch"],
             env: [:],
             cwd: nil,
-            autoStart: false
+            autoStart: false,
+            writeFraming: .ndjson
         ))
         let second = MCPServerStore(fileURL: tempURL)
         let all = try await second.all()
         XCTAssertEqual(all.count, 1)
         XCTAssertEqual(all.first?.command, "uvx")
         XCTAssertEqual(all.first?.autoStart, false)
+        XCTAssertEqual(all.first?.writeFraming, .ndjson)
     }
 
     func testRenameUpdatesInPlace() async throws {
-        try await store.upsert(MCPServerConfig(name: "old", command: "cmd"))
+        try await store.upsert(MCPServerConfig(
+            name: "old",
+            command: "cmd",
+            writeFraming: .ndjson
+        ))
         let renamed = try await store.rename(oldName: "old", to: "new")
         XCTAssertTrue(renamed)
         let all = try await store.all()
         XCTAssertEqual(all.map(\.name), ["new"])
+        XCTAssertEqual(all.first?.writeFraming, .ndjson)
+    }
+
+    func testDecodeDefaultsWriteFramingForLegacyJSON() async throws {
+        let legacy = """
+        [
+          {
+            "name": "legacy",
+            "command": "npx",
+            "args": ["-y", "pkg"],
+            "env": {},
+            "cwd": null,
+            "autoStart": true
+          }
+        ]
+        """
+        try Data(legacy.utf8).write(to: tempURL, options: .atomic)
+        let decoded = try await store.all()
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded.first?.writeFraming, .contentLength)
+    }
+
+    func testLegacyBraveConfigMigratesToNDJSON() async throws {
+        let legacy = """
+        [
+          {
+            "name": "brave-search",
+            "command": "npx",
+            "args": ["-y", "@brave/brave-search-mcp-server", "--transport", "stdio"],
+            "env": { "BRAVE_API_KEY": "x" },
+            "cwd": null,
+            "autoStart": true
+          }
+        ]
+        """
+        try Data(legacy.utf8).write(to: tempURL, options: .atomic)
+        let decoded = try await store.all()
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded.first?.writeFraming, .ndjson)
     }
 
     func testRenameRejectsCollision() async throws {
@@ -94,8 +139,11 @@ final class MCPServerPresetTests: XCTestCase {
         let cfg = preset.makeConfig(env: ["BRAVE_API_KEY": "test"])
         XCTAssertEqual(cfg.name, "brave-search")
         XCTAssertEqual(cfg.command, "npx")
-        XCTAssertTrue(cfg.args.contains("@modelcontextprotocol/server-brave-search"))
+        XCTAssertTrue(cfg.args.contains("@brave/brave-search-mcp-server"))
+        XCTAssertTrue(cfg.args.contains("--transport"))
+        XCTAssertTrue(cfg.args.contains("stdio"))
         XCTAssertEqual(cfg.env["BRAVE_API_KEY"], "test")
+        XCTAssertEqual(cfg.writeFraming, .ndjson)
     }
 
     func testPresetExposesRequiredEnvKeys() {

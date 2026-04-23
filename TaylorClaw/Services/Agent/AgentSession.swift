@@ -195,7 +195,23 @@ final class AgentSession {
     func startUserServer(named name: String) async {
         guard let idx = userServers.firstIndex(where: { $0.id == name }) else { return }
         guard userClients[name] == nil else { return }
-        let cfg = userServers[idx].config
+        var cfg = userServers[idx].config
+        // Brave's MCP server expects NDJSON stdin. Older saved configs may
+        // still carry default `.contentLength` framing.
+        if cfg.args.contains("@brave/brave-search-mcp-server"),
+           cfg.writeFraming == .contentLength {
+            cfg = MCPServerConfig(
+                name: cfg.name,
+                command: cfg.command,
+                args: cfg.args,
+                env: cfg.env,
+                cwd: cfg.cwd,
+                autoStart: cfg.autoStart,
+                writeFraming: .ndjson
+            )
+            userServers[idx] = UserServer(config: cfg, state: .stopped, tools: [])
+            try? await store.upsert(cfg)
+        }
         userServers[idx].state = .starting
         userServers[idx].tools = []
 
@@ -211,7 +227,12 @@ final class AgentSession {
         } catch {
             await c.stop()
             if let i = userServers.firstIndex(where: { $0.id == name }) {
-                userServers[i].state = .failed(error.localizedDescription)
+                let stderr = await c.stderrSnapshot().suffix(8).joined(separator: "\n")
+                if stderr.isEmpty {
+                    userServers[i].state = .failed(error.localizedDescription)
+                } else {
+                    userServers[i].state = .failed("\(error.localizedDescription)\n\(stderr)")
+                }
                 userServers[i].tools = []
             }
         }
