@@ -152,6 +152,10 @@ struct MCPServerEditorSheet: View {
             validationError = "Command is required."
             return
         }
+        if trimmedCmd.contains("=") && trimmedCmd.contains(" ") {
+            validationError = "Command should be only the executable (e.g. 'npx'). Put API keys in the Environment section."
+            return
+        }
         if trimmedName != originalName && existingNames.contains(trimmedName) {
             validationError = "A server named '\(trimmedName)' already exists."
             return
