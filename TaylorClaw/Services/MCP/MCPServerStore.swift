@@ -68,7 +68,8 @@ actor MCPServerStore {
             args: existing.args,
             env: existing.env,
             cwd: existing.cwd,
-            autoStart: existing.autoStart
+            autoStart: existing.autoStart,
+            writeFraming: existing.writeFraming
         )
         try persist()
         return true
@@ -89,7 +90,25 @@ actor MCPServerStore {
             cache = []
             return
         }
-        cache = try decoder.decode([MCPServerConfig].self, from: data)
+        let decoded = try decoder.decode([MCPServerConfig].self, from: data)
+        cache = decoded.map { cfg in
+            // Backward-compatibility migration:
+            // Brave's server currently expects NDJSON stdin. Older app builds
+            // saved it with default `.contentLength`.
+            if cfg.writeFraming == .contentLength,
+               cfg.args.contains("@brave/brave-search-mcp-server") {
+                return MCPServerConfig(
+                    name: cfg.name,
+                    command: cfg.command,
+                    args: cfg.args,
+                    env: cfg.env,
+                    cwd: cfg.cwd,
+                    autoStart: cfg.autoStart,
+                    writeFraming: .ndjson
+                )
+            }
+            return cfg
+        }
     }
 
     private func persist() throws {
