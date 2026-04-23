@@ -24,7 +24,7 @@ actor MemPalaceServer {
                 "PYTHONUNBUFFERED": "1",
             ],
             autoStart: true,
-            writeFraming: .ndjson
+            writeFraming: .contentLength
         )
     }
 
