@@ -120,7 +120,9 @@ final class MCPServerPresetTests: XCTestCase {
         let cfg = preset.makeConfig(env: ["BRAVE_API_KEY": "test"])
         XCTAssertEqual(cfg.name, "brave-search")
         XCTAssertEqual(cfg.command, "npx")
-        XCTAssertTrue(cfg.args.contains("@modelcontextprotocol/server-brave-search"))
+        XCTAssertTrue(cfg.args.contains("@brave/brave-search-mcp-server"))
+        XCTAssertTrue(cfg.args.contains("--transport"))
+        XCTAssertTrue(cfg.args.contains("stdio"))
         XCTAssertEqual(cfg.env["BRAVE_API_KEY"], "test")
     }
 
