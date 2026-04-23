@@ -86,7 +86,13 @@ struct MCPServerEditorSheet: View {
                         HStack {
                             TextField("KEY", text: entry.key)
                                 .font(.body.monospaced())
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .frame(minWidth: 180, idealWidth: 220, maxWidth: 260)
                             TextField("value", text: entry.value)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             Button {
                                 let id = entry.wrappedValue.id
                                 envEntries.removeAll { $0.id == id }
