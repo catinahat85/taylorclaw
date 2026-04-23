@@ -98,6 +98,25 @@ final class MCPServerStoreTests: XCTestCase {
         XCTAssertEqual(decoded.first?.writeFraming, .contentLength)
     }
 
+    func testLegacyBraveConfigMigratesToNDJSON() async throws {
+        let legacy = """
+        [
+          {
+            "name": "brave-search",
+            "command": "npx",
+            "args": ["-y", "@brave/brave-search-mcp-server", "--transport", "stdio"],
+            "env": { "BRAVE_API_KEY": "x" },
+            "cwd": null,
+            "autoStart": true
+          }
+        ]
+        """
+        try Data(legacy.utf8).write(to: tempURL, options: .atomic)
+        let decoded = try await store.all()
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded.first?.writeFraming, .ndjson)
+    }
+
     func testRenameRejectsCollision() async throws {
         try await store.upsert(MCPServerConfig(name: "a", command: "cmd"))
         try await store.upsert(MCPServerConfig(name: "b", command: "cmd"))
@@ -124,6 +143,7 @@ final class MCPServerPresetTests: XCTestCase {
         XCTAssertTrue(cfg.args.contains("--transport"))
         XCTAssertTrue(cfg.args.contains("stdio"))
         XCTAssertEqual(cfg.env["BRAVE_API_KEY"], "test")
+        XCTAssertEqual(cfg.writeFraming, .ndjson)
     }
 
     func testPresetExposesRequiredEnvKeys() {
