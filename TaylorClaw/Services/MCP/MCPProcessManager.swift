@@ -6,7 +6,7 @@ private struct Unsafe<T>: @unchecked Sendable { let value: T }
 ///
 /// The manager owns the `Process` and its stdio pipes. It returns a configured
 /// `MCPTransport` connected to the child's stdin/stdout. Stderr is captured
-/// line-by-line into `stderrLines` for surfacing install / runtime failures.
+/// for surfacing install / runtime failures.
 actor MCPProcessManager {
     let config: MCPServerConfig
     private var processBox: Unsafe<Process>?
@@ -26,6 +26,7 @@ actor MCPProcessManager {
     }
 
     func currentStderr() -> [String] { stderrLines }
+    func logEvent(_ line: String) { appendLog(line) }
 
     /// Launch the subprocess and return a transport wired to its stdio.
     func launch() throws -> MCPTransport {
@@ -171,6 +172,13 @@ actor MCPProcessManager {
                     }
                     let next = buffer.index(after: nl)
                     buffer.removeSubrange(buffer.startIndex..<next)
+                }
+                // Some Python servers print startup banners without a trailing
+                // newline and then block while initializing. Flush these partial
+                // chunks so diagnostics logs still progress in real time.
+                if !buffer.isEmpty, let partial = String(data: buffer, encoding: .utf8) {
+                    await self?.appendStderr(partial)
+                    buffer.removeAll(keepingCapacity: true)
                 }
             }
             if !buffer.isEmpty, let trailing = String(data: buffer, encoding: .utf8) {
