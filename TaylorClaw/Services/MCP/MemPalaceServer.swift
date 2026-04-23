@@ -23,7 +23,8 @@ actor MemPalaceServer {
             env: [
                 "PYTHONUNBUFFERED": "1",
             ],
-            autoStart: true
+            autoStart: true,
+            writeFraming: .ndjson
         )
     }
 
@@ -42,6 +43,10 @@ actor MemPalaceServer {
             if self.client == nil { self.client = c }
             return
         }
+        // Best-effort cleanup of orphaned MemPalace processes from previous
+        // app runs. Stale servers against the same palace path can hold the
+        // Chroma lock and cause new startups to hang indefinitely.
+        terminateStaleProcesses()
         guard FileManager.default.fileExists(atPath: RuntimeConstants.venvPython.path) else {
             throw RuntimeError.notInstalled
         }
@@ -82,6 +87,21 @@ actor MemPalaceServer {
     /// ready client when start has completed, or the in-flight client during
     /// startup (useful for reading stderr while the handshake is pending).
     func mcpClient() -> MCPClient? { client ?? pendingClient }
+
+    // MARK: - Private
+
+    /// Kill orphaned mempalace servers scoped to this palace path.
+    /// `pkill` exits non-zero when no process matches; that's expected.
+    private func terminateStaleProcesses() {
+        let pkill = Process()
+        pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        pkill.arguments = [
+            "-f",
+            "mempalace.mcp_server --palace \(RuntimeConstants.mempalaceDir.path)",
+        ]
+        do { try pkill.run() } catch { return }
+        pkill.waitUntilExit()
+    }
 
     // MARK: - Tool access
 
