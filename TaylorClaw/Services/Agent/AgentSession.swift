@@ -211,7 +211,12 @@ final class AgentSession {
         } catch {
             await c.stop()
             if let i = userServers.firstIndex(where: { $0.id == name }) {
-                userServers[i].state = .failed(error.localizedDescription)
+                let stderr = await c.stderrSnapshot().suffix(8).joined(separator: "\n")
+                if stderr.isEmpty {
+                    userServers[i].state = .failed(error.localizedDescription)
+                } else {
+                    userServers[i].state = .failed("\(error.localizedDescription)\n\(stderr)")
+                }
                 userServers[i].tools = []
             }
         }
