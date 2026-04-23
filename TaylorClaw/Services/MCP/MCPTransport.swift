@@ -70,6 +70,11 @@ actor MCPTransport {
                     if let line = Self.consumeNewlineDelimitedMessage(from: &buffer) {
                         yielder?.yield(line)
                         advanced = true
+                        continue
+                    }
+                    if let bare = Self.consumeBareJSONMessage(from: &buffer) {
+                        yielder?.yield(bare)
+                        advanced = true
                     }
                 }
             }
@@ -167,6 +172,22 @@ private extension MCPTransport {
         buffer.removeSubrange(buffer.startIndex..<next)
         if line.last == 0x0D { line.removeLast() } // tolerate CRLF NDJSON
         return line.isEmpty ? nil : line
+    }
+
+    /// Some servers write a single JSON object per read without a trailing
+    /// newline or Content-Length headers. If the entire current buffer is a
+    /// valid JSON document, emit it as one message.
+    static func consumeBareJSONMessage(from buffer: inout Data) -> Data? {
+        guard let first = buffer.firstNonWhitespaceASCII,
+              first == UInt8(ascii: "{") || first == UInt8(ascii: "[") else {
+            return nil
+        }
+        guard (try? JSONSerialization.jsonObject(with: buffer)) != nil else {
+            return nil
+        }
+        let msg = buffer
+        buffer.removeAll(keepingCapacity: true)
+        return msg
     }
 }
 
