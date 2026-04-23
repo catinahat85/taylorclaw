@@ -67,7 +67,7 @@ extension MCPServerPreset {
         requires: "Node (`npx`)",
         defaultName: "brave-search",
         command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-brave-search"],
+        args: ["-y", "@brave/brave-search-mcp-server", "--transport", "stdio"],
         requiredEnv: [
             ("BRAVE_API_KEY", "Brave Search API key (brave.com/search/api)"),
         ]

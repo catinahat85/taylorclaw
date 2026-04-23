@@ -85,7 +85,8 @@ actor MCPProcessManager {
 
         return MCPTransport(
             stdin: stdinPipe.fileHandleForWriting,
-            stdout: stdoutPipe.fileHandleForReading
+            stdout: stdoutPipe.fileHandleForReading,
+            writeFraming: config.writeFraming == .ndjson ? .ndjson : .contentLength
         )
     }
 
