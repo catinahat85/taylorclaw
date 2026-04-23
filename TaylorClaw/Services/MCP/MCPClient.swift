@@ -91,22 +91,36 @@ actor MCPClient {
             ])
             // Server startup can legitimately take time on first run while Python
             // imports heavy deps / initializes local state.
-            let initRaw = try await sendRequest(
-                "initialize",
-                params: initParams,
-                timeout: startupHandshakeTimeout
-            )
+            let initRaw: JSONValue
+            do {
+                initRaw = try await sendRequest(
+                    "initialize",
+                    params: initParams,
+                    timeout: startupHandshakeTimeout
+                )
+            } catch {
+                throw MCPError.launchFailed("initialize failed: \(error)")
+            }
             if let initResult = decode(MCPInitializeResult.self, from: initRaw) {
                 self.serverInfo = initResult.serverInfo
             }
 
-            try await sendNotification("notifications/initialized", params: nil)
+            do {
+                try await sendNotification("notifications/initialized", params: nil)
+            } catch {
+                throw MCPError.launchFailed("initialized notification failed: \(error)")
+            }
 
-            let listRaw = try await sendRequest(
-                "tools/list",
-                params: .object([:]),
-                timeout: startupHandshakeTimeout
-            )
+            let listRaw: JSONValue
+            do {
+                listRaw = try await sendRequest(
+                    "tools/list",
+                    params: .object([:]),
+                    timeout: startupHandshakeTimeout
+                )
+            } catch {
+                throw MCPError.launchFailed("tools/list failed: \(error)")
+            }
             if let listResult = decode(MCPToolListResult.self, from: listRaw) {
                 self.tools = listResult.tools
             }
