@@ -79,6 +79,7 @@ actor MCPClient {
         await t.start()
         startReader(transport: t)
         if launchedProcess { startExitWatcher() }
+        await manager.logEvent("Startup: beginning MCP handshake for \(config.name) (timeout=\(Int(startupHandshakeTimeout))s per request)")
 
         do {
             let initParams: JSONValue = .object([
@@ -93,12 +94,15 @@ actor MCPClient {
             // imports heavy deps / initializes local state.
             let initRaw: JSONValue
             do {
+                await manager.logEvent("Startup: sending initialize")
                 initRaw = try await sendRequest(
                     "initialize",
                     params: initParams,
                     timeout: startupHandshakeTimeout
                 )
+                await manager.logEvent("Startup: initialize succeeded")
             } catch {
+                await manager.logEvent("Startup: initialize failed error=\(error)")
                 throw MCPError.launchFailed("initialize failed: \(error)")
             }
             if let initResult = decode(MCPInitializeResult.self, from: initRaw) {
@@ -106,27 +110,35 @@ actor MCPClient {
             }
 
             do {
+                await manager.logEvent("Startup: sending notifications/initialized")
                 try await sendNotification("notifications/initialized", params: nil)
+                await manager.logEvent("Startup: notifications/initialized sent")
             } catch {
+                await manager.logEvent("Startup: initialized notification failed error=\(error)")
                 throw MCPError.launchFailed("initialized notification failed: \(error)")
             }
 
             let listRaw: JSONValue
             do {
+                await manager.logEvent("Startup: requesting tools/list")
                 listRaw = try await sendRequest(
                     "tools/list",
                     params: .object([:]),
                     timeout: startupHandshakeTimeout
                 )
+                await manager.logEvent("Startup: tools/list succeeded")
             } catch {
+                await manager.logEvent("Startup: tools/list failed error=\(error)")
                 throw MCPError.launchFailed("tools/list failed: \(error)")
             }
             if let listResult = decode(MCPToolListResult.self, from: listRaw) {
                 self.tools = listResult.tools
             }
             state = .ready
+            await manager.logEvent("Startup: handshake complete, client ready")
         } catch {
             state = .failed("\(error)")
+            await manager.logEvent("Startup: handshake failed error=\(error)")
             await teardown(reason: "startup failure: \(error)")
             throw error
         }

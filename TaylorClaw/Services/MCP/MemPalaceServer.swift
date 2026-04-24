@@ -11,7 +11,7 @@ actor MemPalaceServer {
 
     var isRunning: Bool { client != nil }
 
-    private var config: MCPServerConfig {
+    private func config(writeFraming: MCPServerConfig.WriteFraming) -> MCPServerConfig {
         MCPServerConfig(
             name: "mempalace",
             command: RuntimeConstants.venvPython.path,
@@ -24,7 +24,7 @@ actor MemPalaceServer {
                 "PYTHONUNBUFFERED": "1",
             ],
             autoStart: true,
-            writeFraming: .ndjson
+            writeFraming: writeFraming
         )
     }
 
@@ -50,12 +50,25 @@ actor MemPalaceServer {
         guard FileManager.default.fileExists(atPath: RuntimeConstants.venvPython.path) else {
             throw RuntimeError.notInstalled
         }
-        let cfg = config
-        let c = MCPClient(config: cfg)
-        self.pendingClient = c
-        let task = Task<MCPClient, any Error> {
-            try await c.start()
-            return c
+        let task = Task<MCPClient, any Error> { [weak self] in
+            guard let self else { throw MCPError.notInitialized }
+            do {
+                let primaryConfig = await self.config(writeFraming: .ndjson)
+                let primary = MCPClient(config: primaryConfig)
+                await self.setPendingClient(primary)
+                try await primary.start()
+                return primary
+            } catch let error as MCPError {
+                if case .launchFailed(let details) = error,
+                   details.contains("initialize failed: timeout") {
+                    let fallbackConfig = await self.config(writeFraming: .contentLength)
+                    let fallback = MCPClient(config: fallbackConfig)
+                    await self.setPendingClient(fallback)
+                    try await fallback.start()
+                    return fallback
+                }
+                throw error
+            }
         }
         startTask = task
         do {
@@ -71,6 +84,10 @@ actor MemPalaceServer {
             self.startTask = nil
             throw error
         }
+    }
+
+    private func setPendingClient(_ client: MCPClient) {
+        pendingClient = client
     }
 
     func stop() async {
