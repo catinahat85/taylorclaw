@@ -11,7 +11,7 @@ actor MemPalaceServer {
 
     var isRunning: Bool { client != nil }
 
-    private func config(writeFraming: MCPTransport.WriteFraming) -> MCPServerConfig {
+    private func config(writeFraming: MCPServerConfig.WriteFraming) -> MCPServerConfig {
         MCPServerConfig(
             name: "mempalace",
             command: RuntimeConstants.venvPython.path,
