@@ -46,7 +46,7 @@ actor MemPalaceServer {
         // Best-effort cleanup of orphaned MemPalace processes from previous
         // app runs. Stale servers against the same palace path can hold the
         // Chroma lock and cause new startups to hang indefinitely.
-        terminateStaleProcesses()
+        await terminateStaleProcesses()
         guard FileManager.default.fileExists(atPath: RuntimeConstants.venvPython.path) else {
             throw RuntimeError.notInstalled
         }
@@ -111,16 +111,33 @@ actor MemPalaceServer {
     // MARK: - Private
 
     /// Kill orphaned mempalace servers scoped to this palace path.
+    ///
+    /// Uses SIGKILL so the target is torn down immediately — SIGTERM lets
+    /// Python's shutdown hooks run, during which ChromaDB still holds its
+    /// file lock. If the new process starts before that lock is released it
+    /// will hang inside ChromaDB init and never reach the MCP event loop.
     /// `pkill` exits non-zero when no process matches; that's expected.
-    private func terminateStaleProcesses() {
-        let pkill = Process()
-        pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        pkill.arguments = [
-            "-f",
-            "mempalace.mcp_server --palace \(RuntimeConstants.mempalaceDir.path)",
-        ]
-        do { try pkill.run() } catch { return }
-        pkill.waitUntilExit()
+    private func terminateStaleProcesses() async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global(qos: .utility).async {
+                let pkill = Process()
+                pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+                pkill.arguments = [
+                    "-9",
+                    "-f",
+                    "mempalace.mcp_server --palace \(RuntimeConstants.mempalaceDir.path)",
+                ]
+                do { try pkill.run() } catch {
+                    cont.resume()
+                    return
+                }
+                pkill.waitUntilExit()
+                // Brief pause so the OS has time to release file locks that
+                // were held by the killed process before we open a new one.
+                Thread.sleep(forTimeInterval: 0.75)
+                cont.resume()
+            }
+        }
     }
 
     // MARK: - Tool access

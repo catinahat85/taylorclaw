@@ -93,13 +93,8 @@ actor MCPProcessManager {
         processBox = Unsafe(value: proc)
         startStderrCapture(handle: stderrPipe.fileHandleForReading)
 
-        let effectiveFraming: MCPTransport.WriteFraming
-        if config.args.contains("@brave/brave-search-mcp-server") {
-            // Brave MCP's stdio server expects newline-delimited JSON input.
-            effectiveFraming = .ndjson
-        } else {
-            effectiveFraming = (config.writeFraming == .ndjson ? .ndjson : .contentLength)
-        }
+        let effectiveFraming: MCPTransport.WriteFraming =
+            config.writeFraming == .ndjson ? .ndjson : .contentLength
 
         return MCPTransport(
             stdin: stdinPipe.fileHandleForWriting,

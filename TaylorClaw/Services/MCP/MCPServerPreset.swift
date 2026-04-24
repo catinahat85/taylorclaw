@@ -74,7 +74,7 @@ extension MCPServerPreset {
         requiredEnv: [
             ("BRAVE_API_KEY", "Brave Search API key (brave.com/search/api)"),
         ],
-        writeFraming: .ndjson
+        writeFraming: .contentLength
     )
 
     /// Reference `fetch` server — lets the agent retrieve arbitrary URLs.
