@@ -166,12 +166,18 @@ private extension MCPTransport {
                 return nil
             }
         }
-        guard let nl = buffer.firstIndex(of: 0x0A) else { return nil }
-        var line = buffer.subdata(in: buffer.startIndex..<nl)
-        let next = buffer.index(after: nl)
-        buffer.removeSubrange(buffer.startIndex..<next)
-        if line.last == 0x0D { line.removeLast() } // tolerate CRLF NDJSON
-        return line.isEmpty ? nil : line
+        // Drain blank/empty lines in a loop so they don't leave unconsumed
+        // bytes that stall the read loop. Without this, an empty leading line
+        // sets `advanced = false` in the caller even though the buffer still
+        // contains a complete response, causing an unnecessary blocking read.
+        while let nl = buffer.firstIndex(of: 0x0A) {
+            var line = buffer.subdata(in: buffer.startIndex..<nl)
+            buffer.removeSubrange(buffer.startIndex..<buffer.index(after: nl))
+            if line.last == 0x0D { line.removeLast() } // tolerate CRLF NDJSON
+            if !line.isEmpty { return line }
+            // Empty line — keep looping to skip it.
+        }
+        return nil
     }
 
     /// Some servers write a single JSON object per read without a trailing

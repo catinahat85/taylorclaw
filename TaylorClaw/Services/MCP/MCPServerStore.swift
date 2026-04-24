@@ -92,11 +92,12 @@ actor MCPServerStore {
         }
         let decoded = try decoder.decode([MCPServerConfig].self, from: data)
         cache = decoded.map { cfg in
-            // Backward-compatibility migration:
-            // Brave's server currently expects NDJSON stdin. Older app builds
-            // saved it with default `.contentLength`.
-            if cfg.writeFraming == .contentLength,
-               cfg.args.contains("@brave/brave-search-mcp-server") {
+            // Migration: @brave/brave-search-mcp-server uses the official MCP
+            // TypeScript SDK which speaks Content-Length framing on stdio.
+            // Earlier builds incorrectly stored `.ndjson` for this server;
+            // force it back to `.contentLength` regardless of what was saved.
+            if cfg.args.contains("@brave/brave-search-mcp-server"),
+               cfg.writeFraming != .contentLength {
                 return MCPServerConfig(
                     name: cfg.name,
                     command: cfg.command,
@@ -104,7 +105,7 @@ actor MCPServerStore {
                     env: cfg.env,
                     cwd: cfg.cwd,
                     autoStart: cfg.autoStart,
-                    writeFraming: .ndjson
+                    writeFraming: .contentLength
                 )
             }
             return cfg
